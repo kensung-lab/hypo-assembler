@@ -1,0 +1,15 @@
+includedir=/home/joshuac/hypo_use/external/install/htslib/include
+libdir=/home/joshuac/hypo_use/external/install/htslib/lib
+
+# Flags and libraries needed when linking against a static libhts.a
+# (used by manual and semi-manual pkg-config(1)-style enquiries).
+static_ldflags=-Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,-rpath,/home/joshuac/anaconda3/lib -Wl,-rpath-link,/home/joshuac/anaconda3/lib -L/home/joshuac/anaconda3/lib
+static_libs=-lpthread -lz -lm -lcurl -lcrypto
+
+Name: htslib
+Description: C library for high-throughput sequencing data formats
+Version: 1.9
+Cflags: -I${includedir}
+Libs: -L${libdir} -lhts
+Libs.private: -L${libdir} -Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,-rpath,/home/joshuac/anaconda3/lib -Wl,-rpath-link,/home/joshuac/anaconda3/lib -L/home/joshuac/anaconda3/lib -lhts -lm -lpthread
+Requires.private: zlib 
