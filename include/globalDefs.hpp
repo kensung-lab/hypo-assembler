@@ -77,6 +77,34 @@ namespace hypo{
     // if false, neither intermed files will be written nor used (even if exist)
     bool intermed; 
     std::string wdir; //working directory
+    
+    std::string output_directory;
+    std::string short_initial_mapping_path;
+    std::string long_initial_mapping_path;
+    std::string initial_assembly_path;
+    std::string short_path_1;
+    std::string short_path_2;
+    std::string hic_path_1;
+    std::string hic_path_2;
+    std::string long_path;
+    
+    bool run_hic;
+    
+    std::string flye_path;
+    std::string samtools_path;
+    std::string minimap2_path;
+    
+    uint32_t nano_type;
+    
+    uint64_t genome_size;
+    
+    std::string run_mode;
+    
+    uint32_t samtools_threads;
+    std::string samtools_memory;
+    std::string samtools_temp;
+    
+    std::string initial_contigs;
 
   };
 

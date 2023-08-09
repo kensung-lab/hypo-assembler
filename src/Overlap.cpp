@@ -18,7 +18,7 @@
  */
 /** Defines the class Window.
  * It contains the functionality for POA.
- */ 
+ */
 #include "Window.hpp"
 #include <cmath>
 #include <set>
@@ -40,12 +40,12 @@ void Window::prepare_for_poa(const UINT32 num_threads)
     for (UINT32 i = 0; i < num_threads; ++i)
     {
         _alignment_engines_long.emplace_back(
-            spoa::AlignmentEngine::Create(spoa::AlignmentType::kNW, lr_match_score,
+            spoa::createAlignmentEngine(spoa::AlignmentType::kNW, lr_match_score,
                                         lr_misMatch_score, lr_gap_penalty));
     }
     _alignment_engines_long.shrink_to_fit();
     _alignment_engine_pslong.emplace_back(
-            spoa::AlignmentEngine::Create(spoa::AlignmentType::kOV, lr_match_score,
+            spoa::createAlignmentEngine(spoa::AlignmentType::kOV, lr_match_score,
                                         lr_misMatch_score, lr_gap_penalty));
 }
 
@@ -93,13 +93,13 @@ void Window::generate_consensus(const UINT32 engine_idx)
 
 void Window::reset_consensus(const std::string& s1,const std::string& s2) {
     assert(!s1.empty() && !s2.empty());
-    auto graph = spoa::Graph();
-    auto alignment = _alignment_engine_pslong[0]->Align(s1, graph);
-    graph.AddAlignment(alignment, s1);
-    alignment = _alignment_engine_pslong[0]->Align(s2, graph);
-    graph.AddAlignment(alignment, s2);
-    // std::vector<std::string> msa;
-    auto msa = graph.GenerateMultipleSequenceAlignment();
+    auto graph = spoa::createGraph();
+    auto alignment = _alignment_engine_pslong[0]->align(s1, graph);
+    graph->add_alignment(alignment, s1);
+    alignment = _alignment_engine_pslong[0]->align(s2, graph);
+    graph->add_alignment(alignment, s2);
+    std::vector<std::string> msa;
+    graph->generate_multiple_sequence_alignment(msa, false);
     auto mid = msa[0].size()/2;
     // Left string dominates untilmiddle, then right takes over
     for (UINT i=0; i < mid; ++i) {
@@ -958,7 +958,7 @@ void Window::generate_consensus_long()
 {
     auto engine_idx = _engine_idx;
     std::string consensus = "";
-    auto graph = spoa::Graph();
+    auto graph = spoa::createGraph();
     bool arms_added = false;
     auto num_non_empty_arms = _num_internal + _num_pre + _num_suf;
     UINT32 num_added_arms = 0;
@@ -1149,12 +1149,12 @@ void Window::generate_consensus_long()
     ///////////////////////////////////////////////////////////////////////////
 
     // internal
-    // _alignment_engines_long[engine_idx]->ChangeAlignType(spoa::AlignmentType::kNW);
+    _alignment_engines_long[engine_idx]->changeAlignType(spoa::AlignmentType::kNW);
     //  add draft
     std::string modified_str = cHead + _draft.unpack() + cTail;
     //std::string modified_str = _draft.unpack();
-    auto alignment = _alignment_engines_long[engine_idx]->Align(modified_str, graph);
-    graph.AddAlignment(alignment, modified_str);
+    auto alignment = _alignment_engines_long[engine_idx]->align(modified_str, graph);
+    graph->add_alignment(alignment, modified_str);
     
     
     // Add from longer to shorter
@@ -1172,22 +1172,22 @@ void Window::generate_consensus_long()
                 std::string modified_str = cHead + _internal_arms[i].unpack() + cTail;
                 //std::string modified_str = _internal_arms[i].unpack();
                 arms_added = true;
-                auto alignment = _alignment_engines_long[engine_idx]->Align(modified_str, graph);
+                auto alignment = _alignment_engines_long[engine_idx]->align(modified_str, graph);
                 if (_internal_qual.size() > 0 && _internal_qual[i].size() > 0)
                 {
                     std::string q_str = HIGHEST_PHRED+_internal_qual[i]+HIGHEST_PHRED;
-                    graph.AddAlignment(alignment, modified_str, q_str);
+                    graph->add_alignment(alignment, modified_str, q_str);
                 }
                 else
                 {
-                    graph.AddAlignment(alignment, modified_str);
+                    graph->add_alignment(alignment, modified_str);
                 }
             }
             ++added;
         }
     }
 
-    // _alignment_engines_long[engine_idx]->changeAlignType(spoa::AlignmentType::kLOV);
+    _alignment_engines_long[engine_idx]->changeAlignType(spoa::AlignmentType::kLOV);
     for (UINT i = 0; i < _pre_arms.size(); ++i)
     {
         if (_pre_arms[i].get_seq_size() > 0)
@@ -1195,20 +1195,20 @@ void Window::generate_consensus_long()
             std::string modified_str = cHead + _pre_arms[i].unpack();
             //std::string modified_str = _pre_arms[i].unpack();
             arms_added = true;
-            auto alignment = _alignment_engines_long[engine_idx]->Align(modified_str, graph);
+            auto alignment = _alignment_engines_long[engine_idx]->align(modified_str, graph);
             if (_pre_qual.size() > 0 && _pre_qual[i].size() > 0)
             {
                 std::string q_str = HIGHEST_PHRED+_pre_qual[i];
-                graph.AddAlignment(alignment, modified_str, q_str);
+                graph->add_alignment(alignment, modified_str, q_str);
             }
             else
             {
-                graph.AddAlignment(alignment, modified_str);
+                graph->add_alignment(alignment, modified_str);
             }
         }
     }
     //suffix
-    // _alignment_engines_long[engine_idx]->changeAlignType(spoa::AlignmentType::kROV);
+    _alignment_engines_long[engine_idx]->changeAlignType(spoa::AlignmentType::kROV);
     for (UINT i = 0; i < _suf_arms.size(); ++i)
     {
         if (_suf_arms[i].get_seq_size() > 0)
@@ -1216,15 +1216,15 @@ void Window::generate_consensus_long()
             std::string modified_str = _suf_arms[i].unpack() + cTail;
             //std::string modified_str = _suf_arms[i].unpack();
             arms_added = true;
-            auto alignment = _alignment_engines_long[engine_idx]->Align(modified_str, graph);
+            auto alignment = _alignment_engines_long[engine_idx]->align(modified_str, graph);
             if (_suf_qual.size() > 0 && _suf_qual[i].size() > 0)
             {
                 std::string q_str = _suf_qual[i]+HIGHEST_PHRED;
-                graph.AddAlignment(alignment, modified_str, q_str);
+                graph->add_alignment(alignment, modified_str, q_str);
             }
             else
             {
-                graph.AddAlignment(alignment, modified_str);
+                graph->add_alignment(alignment, modified_str);
             }
         }
     }
@@ -1232,7 +1232,7 @@ void Window::generate_consensus_long()
     {
         std::vector<UINT32> dst;
         //consensus = graph->generate_consensus_custom(dst);
-        consensus = graph.GenerateConsensus(&dst, false);
+        consensus = graph->generate_consensus(dst);
         set_marked_consensus(curate_long(consensus, dst, num_added_arms));
     }
     else

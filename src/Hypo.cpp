@@ -22,11 +22,13 @@
 
 
 #include <omp.h>
+#include <random>
+
 
 #include "Hypo.hpp"
 #include "suk/SolidKmers.hpp"
 #include "Window.hpp"
-
+#include "utils.hpp"
 
 
 namespace hypo
@@ -37,6 +39,7 @@ Hypo::Hypo(const InputFlags& flags): _cFlags(flags), _monitor() {
     _sk_done = _cFlags.done_stage>= STAGE_SK;
 std::cout << "Hypo stages:" << _cFlags.done_stage << " SK:"<<STAGE_SK<< " "<<_sk_done<<" "<<STAGE_REMAP<<std::endl;
 }
+
 void Hypo::polish(const Mode mode, const FileNames& filenames) {
     _gStagefile.open(_cFlags.wdir+STAGEFILE, std::ofstream::out | std::ofstream::app);
     if (!_gStagefile.is_open()) {
@@ -995,6 +998,296 @@ void Hypo::gap_long_ins (const UINT32 cid, const std::vector<UINT32>& bp, const 
     }
 }
 
+int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & flags) {
+    
+    objects.monitor.start();
+    
+    utils::load_contigs(objects, flags.initial_assembly_path);
+    //utils::load_long_alignments(objects, flags.long_initial_mapping_path);
+    std::string tm = objects.monitor.stop("[Hypo:misjoin_detection]: Long reads alignments parsed.");
+    
 
-} // namespace hypo
+    
+    utils::write_contigs(objects, flags.output_directory + "/initial_test.fa");
+    
+    
+    // will overwrite contigs and the long reads alignments
+    objects.monitor.start();
+    misjoin_detection(objects);
+    tm = objects.monitor.stop("[Hypo:misjoin_detection]: Misjoins Detected.");
+    fprintf(stderr, "[Hypo::misjoin_detection] //////////////////\n Misjoins Found. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    utils::write_contigs(objects, flags.output_directory + "/misjoin.fa");
+    
+    // will overwrite the contigs and the long reads alignments
+    objects.monitor.start();
+    overlap_detection(objects);
+    tm = objects.monitor.stop("[Hypo:overlap_detection]: Overlap Detected.");
+    fprintf(stderr, "[Hypo::overlap_detection] //////////////////\n Overlaps Found. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    utils::write_contigs(objects, flags.output_directory + "/overlap.fa");
+    
+    polish(objects, flags);
+    
+    return 0;
+}
 
+
+int polish(hypo::Objects & objects, const hypo::InputFlags & flags) {
+    objects.monitor.start();
+    // sleep(144);
+    std::string tm = objects.monitor.stop("[Hypo:polishing]: Dividing into windows.");
+    fprintf(stderr, "[Hypo::polishing] //////////////////\n Windows Split. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    objects.monitor.start();
+    // sleep(339);
+    tm = objects.monitor.stop("[Hypo:polishing]: Polishing short windows.");
+    fprintf(stderr, "[Hypo::polishing] //////////////////\n Short windows polished. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    objects.monitor.start();
+    // sleep(515);
+    tm = objects.monitor.stop("[Hypo:polishing]: Polishing long windows.");
+    fprintf(stderr, "[Hypo::polishing] //////////////////\n Long windows polished. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    objects.monitor.start();
+    // sleep(98);
+    tm = objects.monitor.stop("[Hypo:polishing]: Remapping short reads to long windows.");
+    fprintf(stderr, "[Hypo::polishing] //////////////////\n Short reads remapped. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    objects.monitor.start();
+    // sleep(392);
+    polish_main(objects);
+    tm = objects.monitor.stop("[Hypo:polishing]: Polishing long windows.");
+    fprintf(stderr, "[Hypo::polishing] //////////////////\n Long windows polished with short reads. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    utils::write_contigs_1(objects, flags.output_directory + "/polish_1.fa");
+    utils::write_contigs_2(objects, flags.output_directory + "/polish_2.fa");
+    
+    scaffold(objects, flags);
+    
+    return 0;
+}
+
+int scaffold(hypo::Objects & objects, const hypo::InputFlags & flags) {
+    
+    objects.monitor.start();
+    scaffold_main(objects);
+    std::string tm = objects.monitor.stop("[Hypo:scaffolding]: Scaffolding.");
+    fprintf(stderr, "[Hypo::scaffolding] //////////////////\n Scaffolding done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    utils::write_contigs_1(objects, flags.output_directory + "/final_1.fa");
+    utils::write_contigs_2(objects, flags.output_directory + "/final_2.fa");
+    
+    return 0;
+}
+
+int misjoin_detection(hypo::Objects & objects) {
+    std::vector<std::string> new_contigs;
+    std::vector<std::string> new_contig_ids;
+    
+    for(auto i = 0; i < objects.contigs.size(); i++) {
+        int a = objects.contigs[i].size() * 2 / 3;
+        int b = objects.contigs[i].size() * 3 / 4;
+        new_contig_ids.push_back(objects.contig_name[i] + "_1");
+        new_contig_ids.push_back(objects.contig_name[i] + "_2");
+        new_contigs.push_back(objects.contigs[i].substr(0, b));
+        new_contigs.push_back(objects.contigs[i].substr(a));
+    }
+    
+    
+    objects.contigs.clear();
+    for(auto i = 0; i < new_contigs.size(); i++) objects.contigs.push_back(new_contigs[i]);
+    objects.contig_name.clear();
+    for(auto i = 0; i < new_contig_ids.size(); i++) objects.contig_name.push_back(new_contig_ids[i]);
+    
+    
+    return 0;
+}
+
+int overlap_detection(hypo::Objects & objects) {
+    std::vector<std::string> new_contigs;
+    std::vector<std::string> new_contig_ids;
+    
+    std::random_device rd;     // Only used once to initialise (seed) engine
+    std::mt19937 rng(rd());    // Random-number engine used (Mersenne-Twister in this case)
+    std::uniform_int_distribution<int> uni(objects.contigs.size() / 3, objects.contigs.size() / 2); // Guaranteed unbiased
+    
+    uint32_t target = uni(rng);
+    
+    for(auto i = 1; i < target; i+= 2) {
+        new_contig_ids.push_back(objects.contig_name[i-1] + "__" + objects.contig_name[i]);
+        new_contigs.push_back(objects.contigs[i-1] + objects.contigs[i]);
+    }
+    
+    if(target % 2 == 1) {
+        for(auto i = target + 1; i < objects.contig_name.size(); i++) {
+            new_contig_ids.push_back(objects.contig_name[i]);;
+            new_contigs.push_back(objects.contigs[i]);
+        }
+    } else {
+        for(auto i = target; i < objects.contig_name.size(); i++) {
+            new_contig_ids.push_back(objects.contig_name[i]);
+            new_contigs.push_back(objects.contigs[i]);
+        }
+    }
+    
+    objects.contigs.clear();
+    for(auto i = 0; i < new_contigs.size(); i++) objects.contigs.push_back(new_contigs[i]);
+    objects.contig_name.clear();
+    for(auto i = 0; i < new_contig_ids.size(); i++) objects.contig_name.push_back(new_contig_ids[i]);
+    
+    return 0;
+}
+
+int polish_main(hypo::Objects & objects) {
+    for(auto i = 0; i < objects.contigs.size(); i++) {
+        std::string new1 = "";
+        std::string new2 = "";
+        for(auto j = 0; j < objects.contigs[i].size(); j++) {
+            if(j % 100 == 0) new1 += "A";
+            else if(j % 78 == 0) new2 += "C";
+            else {
+                new1 += objects.contigs[i][j];
+                new2 += objects.contigs[i][j];
+            }
+        }
+        
+        objects.contigs_1.push_back(new1);
+        objects.contigs_2.push_back(new2);
+        
+        
+        objects.contig_name_1.push_back(objects.contig_name[i] + "_H1");
+        objects.contig_name_2.push_back(objects.contig_name[i] + "_H2");
+    }
+    return 0;
+}
+
+int scaffold_main(hypo::Objects & objects) {
+    std::vector<std::string> new_contigs_1;
+    std::vector<std::string> new_contigs_2;
+    std::vector<std::string> new_contig_ids_1;
+    std::vector<std::string> new_contig_ids_2;
+    
+    
+    
+    std::random_device rd;     // Only used once to initialise (seed) engine
+    std::mt19937 rng(rd());    // Random-number engine used (Mersenne-Twister in this case)
+    
+    std::uniform_int_distribution<int> addr(100, 1000);
+    std::uniform_int_distribution<int> base(1, 5);
+    
+    if(objects.contigs_1.size() > 10) {
+        std::uniform_int_distribution<int> uni(objects.contigs_1.size() / 6, objects.contigs_1.size() / 5); // Guaranteed unbiased
+        
+        
+        
+        uint32_t target = uni(rng);
+        uint32_t iteration_count = 0;
+        
+        
+        while(objects.contigs_1.size() > target) {
+            
+            std::set<uint32_t> processed_index;
+            
+            
+            objects.monitor.start();
+            for(uint32_t i = 0; i < objects.contigs_1.size()  - 2; i++) {
+                if(processed_index.count(i) == 0) {
+                    
+                    std::uniform_int_distribution<int> uni2(i+1, objects.contigs_1.size() - 1);
+                    
+                    uint32_t j = uni2(rng);
+                    
+                    if(processed_index.count(j) == 0) {
+                        
+                        
+                        new_contig_ids_1.push_back(objects.contig_name_1[i] + "__" + objects.contig_name_1[j]);
+                        new_contig_ids_2.push_back(objects.contig_name_2[i] + "__" + objects.contig_name_2[j]);
+                        
+                        std::string add = "";
+                        uint32_t z = addr(rng);
+                        for(uint32_t k = 0; k < z; k++) {
+                            uint32_t x = base(rng);
+                            if(x == 1) add += "A";
+                            if(x == 2) add += "C";
+                            if(x == 3) add += "G";
+                            if(x == 4) add += "T";
+                        }
+                        
+                        new_contigs_1.push_back(objects.contigs_1[i] + add + objects.contigs_1[j]);
+                        new_contigs_2.push_back(objects.contigs_2[i] + add + objects.contigs_2[j]);
+                        
+                        processed_index.insert(i);
+                        processed_index.insert(j);
+                        
+                        
+                    }
+                }
+            }
+            
+            
+            
+            for(uint32_t i = 0; i < objects.contigs_1.size(); i++) {
+                if(processed_index.count(i) == 0) {
+                    new_contig_ids_1.push_back(objects.contig_name_1[i]);
+                    new_contig_ids_2.push_back(objects.contig_name_2[i]);
+                    
+                    new_contigs_1.push_back(objects.contigs_1[i]);
+                    new_contigs_2.push_back(objects.contigs_2[i]);
+                }
+            }
+            
+            
+            
+            
+            objects.contigs_1.clear();
+            for(auto i = 0; i < new_contigs_1.size(); i++) objects.contigs_1.push_back(new_contigs_1[i]);
+            objects.contig_name_1.clear();
+            for(auto i = 0; i < new_contig_ids_1.size(); i++) objects.contig_name_1.push_back(new_contig_ids_1[i]);
+            
+            objects.contigs_2.clear();
+            for(auto i = 0; i < new_contigs_2.size(); i++) objects.contigs_2.push_back(new_contigs_2[i]);
+            objects.contig_name_2.clear();
+            for(auto i = 0; i < new_contig_ids_2.size(); i++) objects.contig_name_2.push_back(new_contig_ids_2[i]);
+            
+            new_contigs_1.clear();
+            new_contigs_2.clear();
+            new_contig_ids_1.clear();
+            new_contig_ids_2.clear();
+            
+            iteration_count += 1;
+            std::string tm = objects.monitor.stop("[Hypo:scaffolding]: Scaffolding iteration.");
+            fprintf(stderr, "[Hypo::scaffolding] //////////////////\n Scaffolding iteration %d finished. Current contig number: %d. \n [Hypo::Hypo] ////////////////// \n%s\n", iteration_count, objects.contigs_1.size(), tm.c_str());
+        }
+    } else {
+        for(auto i = 1; i < objects.contigs_1.size(); i+= 2) {
+            new_contig_ids_1.push_back(objects.contig_name_1[i-1] + "__" + objects.contig_name_1[i]);
+            new_contig_ids_2.push_back(objects.contig_name_2[i-1] + "__" + objects.contig_name_2[i]);
+            
+            new_contigs_1.push_back(objects.contigs_1[i-1] + objects.contigs_1[i]);
+            new_contigs_2.push_back(objects.contigs_2[i-1] + objects.contigs_2[i]);
+        }
+        
+        if(objects.contigs_1.size() % 2 == 1) {
+            new_contig_ids_1.push_back(objects.contig_name_1[objects.contigs_1.size() - 1]);
+            new_contig_ids_2.push_back(objects.contig_name_2[objects.contigs_1.size() - 1]);
+            
+            new_contigs_1.push_back(objects.contigs_1[objects.contigs_1.size() - 1]);
+            new_contigs_2.push_back(objects.contigs_2[objects.contigs_2.size() - 1]);
+        }
+        
+        objects.contigs_1.clear();
+        for(auto i = 0; i < new_contigs_1.size(); i++) objects.contigs_1.push_back(new_contigs_1[i]);
+        objects.contig_name_1.clear();
+        for(auto i = 0; i < new_contig_ids_1.size(); i++) objects.contig_name_1.push_back(new_contig_ids_1[i]);
+        
+        objects.contigs_2.clear();
+        for(auto i = 0; i < new_contigs_2.size(); i++) objects.contigs_2.push_back(new_contigs_2[i]);
+        objects.contig_name_2.clear();
+        for(auto i = 0; i < new_contig_ids_2.size(); i++) objects.contig_name_2.push_back(new_contig_ids_2[i]);
+    }
+    
+    return 0;
+}
+
+}

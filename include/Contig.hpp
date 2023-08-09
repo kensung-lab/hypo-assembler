@@ -172,7 +172,7 @@ public:
     friend std::ostream &operator<<(std::ostream &, const Contig &);
     friend class Alignment;
 
-    
+    inline std::string get_name() {return _name;};
 
 private:
     const UINT32 _id;

@@ -30,6 +30,7 @@
 #include "globalDefs.hpp"
 #include "Contig.hpp"
 #include "Alignment.hpp"
+#include "Objects.hpp"
 
 namespace hypo
 {
@@ -38,13 +39,30 @@ namespace hypo
     const double LI_READ_PERC1 = 0.6;
     const double LI_READ_PERC2 = 0.8;
     const double LI_READ_PERC3 = 0.25;
-class SolidKmers;
+    
+    
+class SolidKmers {
+    
+};
+
+
+
+    
+int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & flags);
+int polish(hypo::Objects & objects, const hypo::InputFlags & flags);
+int scaffold(hypo::Objects & objects, const hypo::InputFlags & flags);
+
+int misjoin_detection(hypo::Objects & objects);
+int overlap_detection(hypo::Objects & objects);
+int polish_main(hypo::Objects & objects);
+int scaffold_main(hypo::Objects & objects);
 
 class Hypo {
 public:
     Hypo(const InputFlags&);
     ~Hypo() = default;
     void polish(const Mode mode, const FileNames& filenames);
+    
 private:
     const InputFlags& _cFlags;
     std::ofstream _gStagefile;
@@ -83,11 +101,13 @@ private:
         std::string trimmed(name,0,e);
         _remapfile << trimmed <<std::endl;
     }
+    
     inline void print_time() {
         std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         std::string s(30, '\0');
         std::strftime(&s[0], s.size(), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
         std::cout << " " << s << " ";
     }
+    
 }; // Hypo
 } // namespace hypo

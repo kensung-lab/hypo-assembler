@@ -32,7 +32,9 @@
 #include "slog/Monitor.hpp"
 
 #include "globalDefs.hpp"
+#include "utils.hpp"
 #include "Hypo.hpp"
+#include "Polish.hpp"
 
 /** Module containing main() method for reading and processing arguments.
  */
@@ -43,24 +45,29 @@ void decodeFlags(int argc, char* argv [], InputFlags& flags, FileNames& filename
 std::vector<std::string> split(const std::string &str, char delimiter);
 void print_byte_to_strings(int nb);
 UINT get_kmer_len(const std::string& arg);
+UINT64 get_given_size(const std::string& arg);
 UINT16 get_expected_file_sz(const std::string& given_size, UINT16 cov);
 void set_kind(const std::string& kind);
-
+    
 static struct option long_options[] = {
-    {"reads-short", required_argument, NULL, 'r'},
-    {"draft", required_argument, NULL, 'd'},
+    {"short-read-1", required_argument, NULL, '1'},
+    {"short-read-2", required_argument, NULL, '2'},
+    {"hic-read-1", required_argument, NULL, '3'},
+    {"hic-read-2", required_argument, NULL, '4'},
+    {"long-read", required_argument, NULL, 'l'},
     {"size-ref", required_argument, NULL, 's'},
     {"coverage-short", required_argument, NULL, 'c'},
     {"coverage-long", required_argument, NULL, 'C'},
-    {"bam-sr", required_argument, NULL, 'b'},
-    {"bam-lr", required_argument, NULL, 'B'},
-    {"output", required_argument, NULL, 'o'},
+    {"working-dir", required_argument, NULL, 'w'},
     {"threads", required_argument, NULL, 't'},
-    {"processing-size", required_argument, NULL, 'p'},
-    {"kind-sr", required_argument, NULL, 'k'},
-    {"wdir", required_argument, NULL, 'w'},
-    {"intermed", no_argument, NULL, 'i'},
-    {"help", no_argument, NULL, 'h'},
+    {"initial-contigs", required_argument, NULL, 'i'},
+    {"flye-path", required_argument, NULL, 'F'},
+    {"samtools-path", required_argument, NULL, 'S'},
+    {"minimap2-path", required_argument, NULL, 'M'},
+    {"nanopore-type", required_argument, NULL, 'n'},
+    {"samtools-thread", required_argument, NULL, '@'},
+    {"samtools-memory", required_argument, NULL, 'Z'},
+    {"samtools-temp", required_argument, NULL, 'X'},   
     {NULL, 0, NULL, 0}};
 
 inline bool file_exists (const std::string& name) {
@@ -94,274 +101,272 @@ const ArmsSettings Arms_settings = {3u,10u,5u,10u,10u,0.3,10u,20u,20u,2u,0.4};
    */
 void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames)
 {
-  int args = 0;
-  int opt;
-  std::string infile;
+    int opt;
+    std::string infile;
 
-  std::string kind="sr";
-  filenames.lr_bam_filename = "";
-  filenames.sr_bam_filename = "";
-  filenames.output_filename = "";
+    std::string kind="sr";
+    filenames.lr_bam_filename = "";
+    filenames.sr_bam_filename = "";
+    filenames.output_filename = "";
 
+    flags.map_qual_th = 2;
+    flags.norm_edit_th = 30;
+    flags.threads = 1;
+    flags.processing_batch_size = 1;
+    flags.intermed = false;
+    flags.sz_in_gb = 12;
+    flags.wdir = "./";
 
-
-  flags.map_qual_th = 2;
-  flags.norm_edit_th = 30;
-  flags.threads = 1;
-  flags.processing_batch_size = 1;
-  flags.intermed = false;
-  flags.sz_in_gb = 12;
-  flags.wdir = "./";
-
-  bool is_sr = false;
-  bool is_draft = false;
-  bool is_size = false;
-  bool is_scov = false;
-  bool is_lcov = false;
-  bool is_bamsr = false;
-  bool is_bamlr = false;
-  std::string given_sz;
-  std::string cmd = "hypo ";
-  std::string err_string = "";
-  std::string cv = "";
-  int cov = 0;
-  /* initialisation */
-  while ((opt = getopt_long(argc, argv, "r:d:s:c:C:b:B:o:t:p:k:w:ihv", long_options,
-                            nullptr)) != -1)
-  {
-    switch (opt)
-    {
-    case 'r':
-      infile = optarg;
-      cmd += (" -r " + std::string(optarg));
-      if(infile[0]=='@') {
-          std::string name;
-          std::ifstream sr_list(infile.substr(1,infile.size()).c_str());
-          if (!sr_list.good()) {
-              fprintf(stderr, "[Hypo::utils] Error: File Error: Could not open the file %s!\n",infile.substr(1,infile.size()).c_str());
-              exit(1); 
-          }
-          while(std::getline(sr_list,name)) {
-            if (name.size()>0) {
-              filenames.sr_filenames.push_back(name);
-              if (!file_exists(name)) {
-                fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",name.c_str());
-                exit(1);
-              }
-            }
-        }
-      }
-      else {
-          filenames.sr_filenames.push_back(infile);
-          if (!file_exists(infile)) {
-            fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",infile.c_str());
-            exit(1);
-          }
-      }
-      is_sr = true;
-      args++;
-      break;
+    flags.output_directory = "hypo_wd/";
+    flags.flye_path = "flye";
+    flags.samtools_path = "samtools";
+    flags.minimap2_path = "minimap2";
     
-    case 'd':
-      filenames.draft_filename = std::string(optarg);
-      if (!file_exists(filenames.draft_filename)) {
-        fprintf(stderr, "[Hypo::utils] Error: File Error: Draft file does not exist %s!\n",filenames.draft_filename.c_str());
-        exit(1);
-      }
-      cmd += (" -d " + std::string(optarg));
-      args++;
-      is_draft = true;
-      break;
+    flags.samtools_threads = 1;
+    flags.samtools_memory = "";
+    flags.samtools_temp = "";
+    
+    flags.initial_contigs = "";
 
-    case 's':    
-      flags.k = std::max(2U,get_kmer_len(std::string(optarg)));
-      cmd += (" -s " + std::string(optarg));
-      given_sz = std::string(optarg);
-      is_size = true;
-      args++;
-      break;
+    flags.nano_type = 0;
 
-    case 'c': 
-      if (atoi(optarg) <= 0 ) {
-        fprintf(stderr, "[Hypo::utils] Error: Arg Error: Coverage should be positive %d!\n",atoi(optarg));
-        exit(1);
-      }   
-      cov = atoi(optarg);
-      SWindow_cov_settings.mean_cov = cov;
-      SWindow_cov_settings.high_th = UINT16(std::ceil(SWindow_cov_settings.high_frac * cov));
-      SWindow_cov_settings.low_th = UINT16(std::ceil(SWindow_cov_settings.low_frac * cov));
-      cmd += (" -c " + std::string(optarg));
-      cv += (" SHORT: "+ std::to_string(SWindow_cov_settings.high_th)+" and " + std::to_string(SWindow_cov_settings.low_th));
-      is_scov = true;
-      args++;
-      break;
+    flags.threads = 1;
 
-    case 'C': 
-      if (atoi(optarg) <= 0 ) {
-        fprintf(stderr, "[Hypo::utils] Error: Arg Error: Coverage should be positive %d!\n",atoi(optarg));
-        exit(1);
-      }   
-      cov = atoi(optarg);
-      LWindow_cov_settings.mean_cov = cov;
-      LWindow_cov_settings.high_th = UINT16(std::ceil(LWindow_cov_settings.high_frac * cov));
-      LWindow_cov_settings.low_th = UINT16(std::ceil(LWindow_cov_settings.low_frac * cov));
-      cmd += (" -C " + std::string(optarg));
-      cv += (" LONG: "+ std::to_string(LWindow_cov_settings.high_th)+" and " + std::to_string(LWindow_cov_settings.low_th));
-      is_lcov = true;
-      args++;
-      break;
+    flags.run_mode = "full";
+    flags.genome_size = 3000000000;
+    
+    bool short_1_check = false;
+    bool short_2_check = false;
+    
+    bool hic_1_check = false;
+    bool hic_2_check = false;
+    
+    bool long_check = false;
+    
+    bool size_check = false;
+    bool cov_check = false;
+    bool cov2_check = false;
+    bool thread_check = false;
+    bool workdir_check = false;
+    
+    std::string given_sz;
+    std::string cmd = "hypo ";
+    std::string err_string = "";
+    std::string cv = "";
+    int cov = 0;
 
-    case 'b':
-      filenames.sr_bam_filename = std::string(optarg);
-      if (!file_exists(filenames.sr_bam_filename)) {
-        fprintf(stderr, "[Hypo::utils] Error: File Error: Short reads BAM file does not exist %s!\n",filenames.sr_bam_filename.c_str());
-        exit(1);
-      }
-      cmd += (" -b " + std::string(optarg));
-      is_bamsr = true;
-      args++;
-      break;
-
-    case 'B':
-      filenames.lr_bam_filename = std::string(optarg);
-      if (!file_exists(filenames.lr_bam_filename)) {
-        fprintf(stderr, "[Hypo::utils] Error: File Error: Long reads BAM file does not exist %s!\n",filenames.lr_bam_filename.c_str());
-        exit(1);
-      }
-      cmd += (" -B " + std::string(optarg));
-      is_bamlr = true;
-      args++;
-      break;
-
-    case 'o':
-      filenames.output_filename = std::string(optarg);
-      cmd += (" -o " + std::string(optarg));
-      args++;
-      break;
-
-    case 'k':
-      kind = std::string(optarg);
-      cmd += (" -k " + kind);
-      args++;
-      break;
-    case 't':
-      if (atoi(optarg) <= 0) {
-        fprintf(stderr, "[Hypo::utils] Error: Arg Error: Number of threads (t) must be positive %d!\n",atoi(optarg));
-        exit(1);
-      }
-      //flags.threads = std::max((UINT32)atoi(optarg)-1,(UINT32)1);
-      flags.threads = std::max((UINT32)atoi(optarg),(UINT32)1);
-      cmd += (" -t " + std::string(optarg));
-      args++;
-      break;
-    case 'p':
-      if (atoi(optarg) < 0) {
-        fprintf(stderr, "[Hypo::utils] Error: Arg Error: Processing-size, i.e. number of contigs processed in a batch, (p) must NOT be negative %d!\n",atoi(optarg));
-        exit(1);
-      }
-      flags.processing_batch_size = std::max((UINT32)atoi(optarg),(UINT32)0);
-      cmd += (" -p " + std::string(optarg));
-      args++;
-      break;
-    case 'i':
-      flags.intermed=true;
-      cmd += (" -i ");
-      break;
-    case 'w':
-      flags.wdir = (std::string(optarg)+"/");
-      if (!file_exists(flags.wdir)) {
-        fprintf(stderr, "[Hypo::utils] Error: Directory Error: Working directory does not exist %s!\n",flags.wdir.c_str());
-        exit(1);
-      }
-      cmd += (" -w " + std::string(optarg));
-      break;
-    default:
-      usage();
-      exit(0);
-    }
-  }
-  // TODO: Check if the int args conform to the assumpions
-  bool is_complete = false;
-  std::string mode = "";
-  if (is_draft && is_size) {
-      if (is_bamlr && is_lcov) { // Long reads alignment
-        is_complete = true;
-        if (is_sr && is_scov) { // Long + short 
-          if (is_bamsr) {
-            flags.mode = Mode::LSA;
-            mode = "LONG + SHORT (Using initial alignments)";
-            flags.intermed = true;
-          }
-          else {
-            flags.mode = Mode::LO;
-            mode = "LONG ONLY";
-          }
+    /* static struct option long_options[] = {
+    {"short-read-1", required_argument, NULL, '1'},
+    {"short-read-2", required_argument, NULL, '2'},
+    {"hic-read-1", required_argument, NULL, '3'},
+    {"hic-read-2", required_argument, NULL, '4'},
+    {"long-read", required_argument, NULL, 'l'},
+    {"size-ref", required_argument, NULL, 's'},
+    {"coverage-short", required_argument, NULL, 'c'},
+    {"coverage-long", required_argument, NULL, 'C'},
+    {"working-dir", required_argument, NULL, 'w'},
+    {"threads", required_argument, NULL, 't'},
+    {"flye-path", required_argument, NULL, 'F'},
+    {"samtools-path", required_argument, NULL, 'S'},
+    {"minimap2-path", required_argument, NULL, 'M'},
+    {"nanopore-type", required_argument, NULL, 'n'},    
+    {NULL, 0, NULL, 0}}; */
+    
+    std::string name;
+    
+    /* initialisation */
+    while ((opt = getopt_long(argc, argv, "1:2:3:4:l:s:c:C:w:t:F:S:M:n:@:Z:X:i:", long_options,
+                        nullptr)) != -1) {
+        switch (opt) {
+            case '1':
+                name = std::string(optarg);
+                fprintf(stderr, "[Hypo] Short read file 1 is %s\n", name.c_str());
+                if(!file_exists(name)) {
+                    fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",name.c_str());
+                    exit(1);
+                }
+                flags.short_path_1 = name;
+                short_1_check = true;
+                break;
+            case '2':
+                name = std::string(optarg);
+                fprintf(stderr, "[Hypo] Short read file 2 is %s\n", name.c_str());
+                if(!file_exists(name)) {
+                    fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",name.c_str());
+                    exit(1);
+                }
+                flags.short_path_2 = name;
+                short_2_check = true;
+                break;
+            case '3':
+                name = std::string(optarg);
+                fprintf(stderr, "[Hypo] Hi-C read file 1 is %s\n", name.c_str());
+                if(!file_exists(name)) {
+                    fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",name.c_str());
+                    exit(1);
+                }
+                flags.hic_path_1 = name;
+                hic_1_check = true;
+                break;
+            case '4':
+                name = std::string(optarg);
+                fprintf(stderr, "[Hypo] Hi-C read file 2 is %s\n", name.c_str());
+                if(!file_exists(name)) {
+                    fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",name.c_str());
+                    exit(1);
+                }
+                flags.hic_path_2 = name;
+                hic_2_check = true;
+                break;
+            case 'l':
+                name = std::string(optarg);
+                fprintf(stderr, "[Hypo] Long reads file is %s\n", name.c_str());
+                if(!file_exists(name)) {
+                    fprintf(stderr, "[Hypo::utils] Error: File Error: Reads file does not exist %s!\n",name.c_str());
+                    exit(1);
+                }
+                flags.long_path = name;
+                long_check = true;
+                break;
+            case 's':  
+                flags.k = std::max(2U,get_kmer_len(std::string(optarg)));
+                flags.genome_size = get_given_size(std::string(optarg));
+                cmd += (" -s " + std::string(optarg));
+                given_sz = std::string(optarg);
+                UINT power;
+                fprintf(stderr, "[Hypo] Estimated genome size is %s\n", given_sz.c_str());
+                size_check = true;
+                break;
+            case 'c': 
+                if (atoi(optarg) <= 0 ) {
+                    fprintf(stderr, "[Hypo::utils] Error: Arg Error: Coverage should be positive %d!\n",atoi(optarg));
+                    exit(1);
+                }   
+                cov = atoi(optarg);
+                SWindow_cov_settings.mean_cov = cov;
+                SWindow_cov_settings.high_th = UINT16(std::ceil(SWindow_cov_settings.high_frac * cov));
+                SWindow_cov_settings.low_th = UINT16(std::ceil(SWindow_cov_settings.low_frac * cov));
+                cmd += (" -c " + std::string(optarg));
+                cv += (" SHORT: "+ std::to_string(SWindow_cov_settings.high_th)+" and " + std::to_string(SWindow_cov_settings.low_th));
+                
+                fprintf(stderr, "[Hypo] Estimated short read coverage is %d\n", cov);
+                
+                cov_check = true;
+                break;
+            case 'C': 
+                if (atoi(optarg) <= 0 ) {
+                    fprintf(stderr, "[Hypo::utils] Error: Arg Error: Coverage should be positive %d!\n",atoi(optarg));
+                    exit(1);
+                }   
+                cov = atoi(optarg);
+                LWindow_cov_settings.mean_cov = cov;
+                LWindow_cov_settings.high_th = UINT16(std::ceil(LWindow_cov_settings.high_frac * cov));
+                LWindow_cov_settings.low_th = UINT16(std::ceil(LWindow_cov_settings.low_frac * cov));
+                cmd += (" -C " + std::string(optarg));
+                cv += (" LONG: "+ std::to_string(LWindow_cov_settings.high_th)+" and " + std::to_string(LWindow_cov_settings.low_th));
+                
+                
+                fprintf(stderr, "[Hypo] Estimated long read coverage is %d\n", cov);
+                
+                cov2_check = true;
+                break;
+            case 'k':
+                kind = std::string(optarg);
+                cmd += (" -k " + kind);
+                break;
+            case 't':
+                if (atoi(optarg) <= 0) {
+                    fprintf(stderr, "[Hypo::utils] Error: Arg Error: Number of threads (t) must be positive %d!\n",atoi(optarg));
+                    exit(1);
+                }
+                //flags.threads = std::max((UINT32)atoi(optarg)-1,(UINT32)1);
+                flags.threads = std::max((UINT32)atoi(optarg),(UINT32)1);
+                cmd += (" -t " + std::string(optarg));
+                
+                fprintf(stderr, "[Hypo] Using %d threads.", flags.threads);
+                
+                thread_check = true;
+                break;
+            case 'w':
+                flags.output_directory = (std::string(optarg)+"/");
+                
+                cmd += (" -w " + std::string(optarg));
+                
+                workdir_check = true;
+                break;
+            case 'F':
+                flags.flye_path = std::string(optarg);
+                break;
+            case 'S':
+                flags.samtools_path = std::string(optarg);
+                break;
+            case 'M':
+                flags.minimap2_path = std::string(optarg);
+                break;
+            case 'Z':
+                flags.samtools_memory = std::string(optarg);
+                break;
+            case '@':
+                if (atoi(optarg) <= 0) {
+                    fprintf(stderr, "[Hypo::utils] Error: Arg Error: Number of samtools threads (@) must be positive %d!\n",atoi(optarg));
+                    exit(1);
+                }
+                flags.samtools_threads = std::max((UINT32)atoi(optarg),(UINT32)1);
+                break;
+            case 'X':
+                flags.samtools_temp = std::string(optarg);
+                break;
+            case 'i':
+                name = std::string(optarg);
+                fprintf(stderr, "[Hypo] Initial contigs file is %s\n", name.c_str());
+                if(!file_exists(name)) {
+                    fprintf(stderr, "[Hypo::utils] Error: File Error: Initial contigs file does not exist %s!\n",name.c_str());
+                    exit(1);
+                }
+                flags.initial_contigs = name;
+                break;
+            default:
+                usage();
+                exit(0);
         }
-        else { // Long read only          
-          flags.mode = Mode::LO;
-          mode = "LONG ONLY";
+    }
+    
+    // arguments checker
+    if(!short_1_check || !short_2_check) {
+        fprintf(stderr, "[Hypo] Short reads file must be provided\n");
+        exit(1);
+    }
+    
+    if(!hic_1_check || !hic_2_check) {
+        fprintf(stderr, "[Hypo] Hi-C reads file must both be provided. Running without Hi-C.\n");
+        flags.run_hic = false;
+    } else {
+        flags.run_hic = true;
+    }
+    
+    if(!long_check) {
+        fprintf(stderr, "[Hypo] Long reads file must be provided.\n");
+        exit(1);
+    }
+    
+    if(!size_check) {
+        fprintf(stderr, "Estimated size not provided, defaults to 3G for human genome.\n");
+    }
+    
+    fprintf(stderr, "[Hypo] Running on %d threads.\n", flags.threads);
+        
+    if(!workdir_check) {
+        fprintf(stderr, "Work directory not provided, defaults to hypo_wd on current working directory.\n");
+    }
+    
+    if (!file_exists(flags.output_directory)) {
+        fprintf(stderr, "[Hypo] Working directory %s does not exist. Creating.\n",flags.output_directory.c_str());
+        int mkwdir = mkdir(flags.output_directory.c_str(), 0755);
+        if(mkwdir == -1) {
+            fprintf(stderr, "[Hypo] ERROR: Failed to create directory.\n");
+            exit(1);
         }
     }
-    else { // short reads only
-      if (is_sr && is_scov && is_bamsr) {
-        is_complete = true;
-        flags.mode = Mode::SO;
-        mode = "SHORT ONLY";
-      }
-    }
-  }
-  if (is_complete) {
-    // Set output name
-    if (filenames.output_filename == "") {
-      size_t ind = filenames.draft_filename.find_last_of("(/\\");
-      std::string dfullname (filenames.draft_filename,ind + 1);
-      ind = dfullname.find_last_of(".");
-      std::string dname(dfullname,0,ind);
-      filenames.output_filename = "hypo_" + dname + ".fasta";
-    }
-    fprintf(stdout, "[Hypo::Utils] Info: Given Command: %s.\n",cmd.c_str()); 
-    fprintf(stdout, "[Hypo::Utils] Info: Operating Mode: %s.\n",mode.c_str());
-    fprintf(stdout, "[Hypo::Utils] Info: High and Low Coverage thresholds: %s.\n",cv.c_str()); 
-    // Set stage to start from  
-    create_dir(flags.wdir+AUX_DIR);
-    create_dir(flags.wdir+SR_DIR);
-    if (flags.intermed) {  
-      if (file_exists(flags.wdir+STAGEFILE)) {
-        std::ifstream ifs(flags.wdir+STAGEFILE);
-        if (!ifs.is_open()) {
-          fprintf(stderr, "[Hypo::Utils] Error: File open error: Stage File (%s) exists but could not be opened!\n",STAGEFILE);
-          exit(1);
-        }
-        std::string dummy1,dummy2,dummy3;
-        UINT stage_num=STAGE_BEG;
-        while (ifs >> dummy1 >> dummy2 >> dummy3 >> stage_num){}
-        flags.done_stage = stage_num;
-      }
-      else {
-        flags.done_stage = STAGE_BEG;
-      }
-      fprintf(stdout, "[Hypo::Utils] Info: Intermediate Files will be stored.\n"); 
-    }
-    else {
-      flags.done_stage = STAGE_BEG;
-      fprintf(stdout, "[Hypo::Utils] Info: Intermediate Files will NOT be stored.\n"); 
-    }
-    fprintf(stdout, "[Hypo::Utils] Info: Beginning from stage: %u\n",flags.done_stage); 
-  }
-  else
-  {
-    fprintf(stderr, "[Hypo::] Error: Invalid command: Too few arguments!\n");
-    usage();
-    exit(1);
-  }
-  
-  if (flags.mode==Mode::LSA || flags.mode==Mode::SO)
-  {
-    // Set window settings
-    void set_kind(const std::string& kind);
-    // Set expected short reads file size
-    flags.sz_in_gb = get_expected_file_sz(given_sz,SWindow_cov_settings.mean_cov); 
-  }
 }
 
 /*
@@ -369,6 +374,8 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames
    */
 void usage(void)
 {
+    std::cout << "Param error" << std::endl;
+    /*
   std::cout << "\n Hypo Version:"<<VERSION<< "\n\n";
   std::cout << "\n Usage: ./hypo <args>\n\n";
   std::cout << " ****** Mandatory args:\n";
@@ -440,7 +447,7 @@ void usage(void)
             << "\t[Default] One contig.\n\n ";
     
   std::cout << "\t-h, --help\n"
-            << "\tPrint the usage. \n\n";
+            << "\tPrint the usage. \n\n"; */
 }
 
 
@@ -501,6 +508,42 @@ void print_byte_to_strings(int nb) {
     }       
 }
 
+uint64_t get_given_size(const std::string& given_size) {
+    // Find minimum k such that it is odd and  4^k >= genome_size => 2**2k >= genome_size => 2k = log_2(genome_size)
+  UINT power;
+  size_t ind;
+  auto val = std::stof(given_size,&ind);
+  if (ind >= given_size.size()) { // should be absolute number
+    if (floor(val)!=ceil(val)) {
+      fprintf(stderr, "[Hypo::Utils] Error: Wrong format for genome-size: Genome-size with no units (K,M,G etc,) should be absolute number!\n");
+      exit(1);
+    }
+    power = 0;
+  }
+  else {
+    char unit = std::toupper(given_size[ind]);
+    switch (unit)
+    {
+    case 'K':
+      power = 10;
+      break;
+    case 'M':
+      power = 20;
+      break;
+    case 'G':
+      power = 30;
+      break;
+    case 'T':
+      power = 40;
+      break;
+    default:
+      fprintf(stderr, "[Hypo::Utils] Error: Wrong format for genome-size: Allowed units for Genome-size are K (10^3),M (10^6),G (10^9),T (10^12)!\n");
+      exit(1);
+    }
+  }
+  return val;
+}
+
 UINT get_kmer_len(const std::string& given_size) {
   // Find minimum k such that it is odd and  4^k >= genome_size => 2**2k >= genome_size => 2k = log_2(genome_size)
   UINT power;
@@ -537,7 +580,7 @@ UINT get_kmer_len(const std::string& given_size) {
   UINT kmer_len = (power) + ceil(log2(val));
   kmer_len = ceil(kmer_len/2); // divide by 2
   if (kmer_len%2==0) {++kmer_len;}
-  fprintf(stdout, "[Hypo::Utils] Info: Value of K chosen for the given genome size (%s): %u\n",given_size.c_str(),kmer_len); 
+  fprintf(stdout, "[Hypo::Utils] Info: Value of K chosen for the given genome size (%s): %u\n",given_size.c_str(),kmer_len);
   return kmer_len;
 }
 
@@ -603,81 +646,101 @@ void set_kind(const std::string& kind) {
 
 int main(int argc, char **argv) {
     
-  slog::Monitor monitor;
-  /* Decode arguments */
-  hypo::InputFlags flags;
-  hypo::FileNames filenames;
-  hypo::decodeFlags(argc, argv, flags, filenames);
-
-  hypo::Mode mode = flags.mode; 
-  hypo::Hypo hypo(flags);
-  monitor.start();
-  std::string tm="";
-  if (mode==hypo::Mode::LSA) {
-    // Call first round of polishing using short reads/aln
-    std::string orignal_out_name = filenames.output_filename;
-    std::string first_out_name = (orignal_out_name+".0.fasta");
-    filenames.output_filename = first_out_name;
+    hypo::InputFlags flags;
+    hypo::FileNames filenames;
+    hypo::decodeFlags(argc, argv, flags, filenames);
     
-    if (flags.done_stage < STAGE_FIRST) {
-      hypo.polish(mode, filenames);
-      flags.done_stage = STAGE_FIRST;
+    hypo::Objects main_objects;
+    
+    slog::Monitor monitor;
+    std::string tm="";
+    
+    
+    // full pipeline: start with assembly and mapping of reads
+    if(flags.run_mode == "full") {
+        
+        /*
+         * First step: run FlyE
+         */
+         
+         if(flags.initial_contigs.size() == 0) {
+                std::string flye_command = flags.flye_path + " ";
+                
+                if(flags.nano_type == 0)  // two different modes of FlyE for old and new nanopore reads
+                    flye_command += "--nano-raw ";
+                else 
+                    flye_command += "--nano-hq ";
+                
+                flye_command += flags.long_path;
+                
+                flye_command += " --genome-size " + std::to_string(flags.genome_size);
+                flye_command += " --threads " + std::to_string(flags.threads) ;
+                flye_command += " --out-dir " + flags.output_directory + "/flye/";
+                flye_command += " -i 0";
+                
+                
+                monitor.start();
+                
+                std::cout << flye_command << std::endl;
+                system(flye_command.c_str());
+                
+                tm = monitor.stop("[Hypo:main]: Run FlyE.");
+                fprintf(stdout, "[Hypo::main] //////////////////\n Running FlyE done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+        
+            flags.initial_assembly_path = flags.output_directory + "/flye/assembly.fasta";
+        } else {
+            flags.initial_assembly_path = flags.initial_contigs;
+        }
+        
+        // included in flye run: map short and long reads
+        std::string minimap2_short_command = flags.minimap2_path + " -ax sr -t " + std::to_string(flags.threads)  + " ";
+        minimap2_short_command += flags.initial_assembly_path + " " + flags.short_path_1 + " " + flags.short_path_2;
+        minimap2_short_command += " | " + flags.samtools_path + " view -bS | ";
+        minimap2_short_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
+        if(flags.samtools_memory.size() > 0) minimap2_short_command += " -m " + flags.samtools_memory;
+        if(flags.samtools_temp.size() > 0) minimap2_short_command += " -T " + flags.samtools_temp;
+        minimap2_short_command += " -o " + flags.output_directory + "/short_read_initial.bam";
+        
+        monitor.start();
+        
+        std::cout << minimap2_short_command << std::endl;
+        system(minimap2_short_command.c_str());
+        tm = monitor.stop("[Hypo:main]: Minimap2: Mapping short reads to initial assembly.");
+        fprintf(stdout, "[Hypo::main] //////////////////\n Minimap2 - short reads done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+        
+        flags.short_initial_mapping_path = flags.output_directory + "/short_read_initial.bam";
+        
+        std::string minimap2_long_command = flags.minimap2_path + " -ax map-ont -t " + std::to_string(flags.threads) + " ";
+        minimap2_long_command += flags.initial_assembly_path + " " + flags.long_path;
+        minimap2_long_command += " | " + flags.samtools_path + " view -bS | ";
+        minimap2_long_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
+        if(flags.samtools_memory.size() > 0) minimap2_long_command += " -m " + flags.samtools_memory;
+        if(flags.samtools_temp.size() > 0) minimap2_long_command += " -T " + flags.samtools_temp;
+        minimap2_long_command += " -o " + flags.output_directory + "/long_read_initial.bam";
+        
+        monitor.start();
+        std::cout << minimap2_long_command << std::endl;
+        
+        system(minimap2_long_command.c_str());
+        tm = monitor.stop("[Hypo:main]: Minimap2: Mapping long reads to initial assembly.");
+        fprintf(stdout, "[Hypo::main] //////////////////\n Minimap2 - long reads done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+        
+        flags.long_initial_mapping_path = flags.output_directory + "/long_read_initial.bam";
     }
     
-    tm = monitor.stop("[Hypo:main]: First round. ");
-    fprintf(stdout, "[Hypo::main] //////////////////\n FIRST ROUND POLISHING DONE\n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
-
-    // Map short reads to long read polished draft.
-    // IT IS SAFE TO RUN SYSTEM AS USER-GIVEN ARGS ARE ALREADY SANITISED
     monitor.start();
-    std::string sf_name (flags.wdir+SBAMFILE);
-    std::string numth = std::to_string(flags.threads);
-
-    std::string rn_file = "";
-    if (filenames.sr_filenames.size()==2) { // R1 nd R2  
-      fprintf(stdout, "[Hypo::main] Assuming Paired end reads with R1 as %s and R2 as %s \n", filenames.sr_filenames[0].c_str(), filenames.sr_filenames[1].c_str());
-      rn_file = filenames.sr_filenames[0]+" "+filenames.sr_filenames[1];
-    }
-    else {
-      rn_file = filenames.sr_filenames[0];
-    }
-
-    std::string aln_cmd = "minimap2 --MD -ax sr --secondary=no -t ";
-    aln_cmd += (numth + " " + first_out_name) + " " + rn_file;
-
-    std::string sam_cmd = ("samtools view -@ " + numth + " -Sb - | samtools sort -@" + numth + " -m 2g -o " + sf_name + " -");
+    hypo::utils::initialize_solid_kmers(main_objects, flags.k, flags.short_path_1, flags.short_path_2);
+    tm = monitor.stop("[Hypo:main]: Extracted solid kmers.");
+    fprintf(stdout, "[Hypo::main] //////////////////\n Solid kmers initialization done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
     
-    if (flags.done_stage < STAGE_REMAP) {
-      std::string final_cmd = aln_cmd + " | " + sam_cmd;
-      fprintf(stdout, "[Hypo::main] Following re-aligns the reads \n%s \n", final_cmd.c_str());
-      auto status = system(final_cmd.c_str());
-      if(!WIFEXITED(status)) {
-          fprintf(stderr, "[Hypo::main] Error: Failed to run minimap2/samtools.\n");
-          exit(1);
-      }
+    // Assembly enchancement or full run: Run the overlap detection
+    if(flags.run_mode == "full" || flags.run_mode == "enhance_assembly") { 
+        hypo::overlap_detection_main(main_objects, flags);
     }
-    if (!hypo::file_exists(sf_name)) {
-        fprintf(stderr, "[Hypo::main] Error: File Error: (Intermediate) Short reads BAM file does not exist %s!\n",sf_name.c_str());
-        exit(1);
-    }
-    tm = monitor.stop("[Hypo:main]: Mapping. ");
-    fprintf(stdout, "[Hypo::main] //////////////////\n MAPPING SELECTIVE SHORT READS ONTO FIRST ROUND POLISHED DRAFT DONE\n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
-
-    // Call second round of polishing using short reads only
-    monitor.start();
-    filenames.sr_bam_filename = sf_name;
-    filenames.lr_bam_filename = "";
-    filenames.draft_filename = first_out_name;
-    filenames.output_filename = orignal_out_name;
-    hypo.polish(hypo::Mode::SECOND,filenames);
-    tm = monitor.stop("[Hypo:main]: Short round. ");
-    fprintf(stdout, "[Hypo::Hypo] //////////////////\n FINAL POLISHING DONE\n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
-  }
-  else {
-    hypo::Hypo hypo(flags);
-    hypo.polish(mode,filenames);
-  }
-  monitor.total("[Hypo:main]: TOTAL (Combined). ");
-  return 0;
+    else if(flags.run_mode == "polish") {
+        hypo::polish_main(main_objects, flags);
+    } // else if(flags.mode == "scaffold") {
+        // scaffold_main(flags);
+    // }
+    return 0;
 }
-
