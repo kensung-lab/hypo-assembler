@@ -1070,6 +1070,9 @@ int polish(hypo::Objects & objects, const hypo::InputFlags & flags) {
 
 int scaffold(hypo::Objects & objects, const hypo::InputFlags & flags) {
     
+    
+    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
+    
     objects.monitor.start();
     scaffold_main(objects);
     std::string tm = objects.monitor.stop("[Hypo:scaffolding]: Scaffolding.");
@@ -1082,6 +1085,9 @@ int scaffold(hypo::Objects & objects, const hypo::InputFlags & flags) {
 }
 
 int misjoin_detection(hypo::Objects & objects) {
+    
+    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
+    
     std::vector<std::string> new_contigs;
     std::vector<std::string> new_contig_ids;
     
@@ -1105,6 +1111,10 @@ int misjoin_detection(hypo::Objects & objects) {
 }
 
 int overlap_detection(hypo::Objects & objects) {
+    
+    
+    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
+    
     std::vector<std::string> new_contigs;
     std::vector<std::string> new_contig_ids;
     
@@ -1140,6 +1150,9 @@ int overlap_detection(hypo::Objects & objects) {
 }
 
 int polish_main(hypo::Objects & objects) {
+    
+    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
+    
     for(auto i = 0; i < objects.contigs.size(); i++) {
         std::string new1 = "";
         std::string new2 = "";
@@ -1163,6 +1176,9 @@ int polish_main(hypo::Objects & objects) {
 }
 
 int scaffold_main(hypo::Objects & objects) {
+    
+    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
+    
     std::vector<std::string> new_contigs_1;
     std::vector<std::string> new_contigs_2;
     std::vector<std::string> new_contig_ids_1;
