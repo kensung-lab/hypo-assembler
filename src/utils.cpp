@@ -36,11 +36,7 @@ namespace hypo {
                 std::string get_id(seq->name.s, seq->name.l);
                 
                 for(int i = 0; i < seq->seq.l; i++) {
-                    int c = seq->seq.s[i];
-                    if(c % 4 == 0) get_sequence += "A";
-                    if(c % 4 == 1) get_sequence += "C";
-                    if(c % 4 == 2) get_sequence += "G";
-                    if(c % 4 == 3) get_sequence += "T";
+                    get_sequence += seq->seq.s[i];
                 }
                 
                 objects.contigs.push_back(get_sequence);
