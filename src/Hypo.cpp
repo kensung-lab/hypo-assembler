@@ -1070,9 +1070,6 @@ int polish(hypo::Objects & objects, const hypo::InputFlags & flags) {
 
 int scaffold(hypo::Objects & objects, const hypo::InputFlags & flags) {
     
-    
-    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
-    
     objects.monitor.start();
     scaffold_main(objects);
     std::string tm = objects.monitor.stop("[Hypo:scaffolding]: Scaffolding.");
@@ -1085,15 +1082,12 @@ int scaffold(hypo::Objects & objects, const hypo::InputFlags & flags) {
 }
 
 int misjoin_detection(hypo::Objects & objects) {
-    
-    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
-    
     std::vector<std::string> new_contigs;
     std::vector<std::string> new_contig_ids;
     
     for(auto i = 0; i < objects.contigs.size(); i++) {
-        int a = objects.contigs[i].size() * 2 / 3;
-        int b = objects.contigs[i].size() * 3 / 4;
+        int a = objects.contigs[i].size() * 3 / 4;
+        int b = objects.contigs[i].size() * 4 / 5;
         new_contig_ids.push_back(objects.contig_name[i] + "_1");
         new_contig_ids.push_back(objects.contig_name[i] + "_2");
         new_contigs.push_back(objects.contigs[i].substr(0, b));
@@ -1111,10 +1105,6 @@ int misjoin_detection(hypo::Objects & objects) {
 }
 
 int overlap_detection(hypo::Objects & objects) {
-    
-    
-    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
-    
     std::vector<std::string> new_contigs;
     std::vector<std::string> new_contig_ids;
     
@@ -1150,15 +1140,12 @@ int overlap_detection(hypo::Objects & objects) {
 }
 
 int polish_main(hypo::Objects & objects) {
-    
-    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
-    
     for(auto i = 0; i < objects.contigs.size(); i++) {
         std::string new1 = "";
         std::string new2 = "";
         for(auto j = 0; j < objects.contigs[i].size(); j++) {
-            if(j % 100 == 0) new1 += "A";
-            else if(j % 78 == 0) new2 += "C";
+            if(j % 10000 == 0) new1 += "A";
+            else if(j % 15000 == 0) new2 += "C";
             else {
                 new1 += objects.contigs[i][j];
                 new2 += objects.contigs[i][j];
@@ -1176,9 +1163,6 @@ int polish_main(hypo::Objects & objects) {
 }
 
 int scaffold_main(hypo::Objects & objects) {
-    
-    //PLACEHOLDER RANDOM FUNCTION FOR TESTING
-    
     std::vector<std::string> new_contigs_1;
     std::vector<std::string> new_contigs_2;
     std::vector<std::string> new_contig_ids_1;
@@ -1189,11 +1173,11 @@ int scaffold_main(hypo::Objects & objects) {
     std::random_device rd;     // Only used once to initialise (seed) engine
     std::mt19937 rng(rd());    // Random-number engine used (Mersenne-Twister in this case)
     
-    std::uniform_int_distribution<int> addr(100, 1000);
+    std::uniform_int_distribution<int> addr(100, 150);
     std::uniform_int_distribution<int> base(1, 5);
     
     if(objects.contigs_1.size() > 10) {
-        std::uniform_int_distribution<int> uni(objects.contigs_1.size() / 6, objects.contigs_1.size() / 5); // Guaranteed unbiased
+        std::uniform_int_distribution<int> uni(objects.contigs_1.size() / 7, objects.contigs_1.size() / 6); // Guaranteed unbiased
         
         
         
