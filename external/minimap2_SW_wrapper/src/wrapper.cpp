@@ -8,6 +8,7 @@
 
 SWWrapper::Aligner::Aligner(int8_t match_score, int8_t mismatch_score, int8_t gap_opening, int8_t gap_extension, int8_t gap_opening2, int8_t gap_extension2, int w, int zdrop) {
     // mm should be negatives, gaps should be positives
+    
     mismatch_score = (mismatch_score > 0) ? -1 * mismatch_score : mismatch_score;
     gap_opening = (gap_opening > 0) ? gap_opening : -1 * gap_opening;
     gap_opening2 = (gap_opening2 > 0) ? gap_opening2 : -1 * gap_opening2;
