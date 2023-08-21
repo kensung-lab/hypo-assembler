@@ -118,10 +118,6 @@ else()
     endif()
 endif()
 
-if (NOT TARGET spoa)
-    add_subdirectory(external/spoa EXCLUDE_FROM_ALL)
-endif()
-
 if (NOT TARGET suk)
     add_subdirectory(external/suk EXCLUDE_FROM_ALL)
 endif() 
@@ -135,5 +131,5 @@ endif()
 
 # This maybe needed for filesystem: target_link_libraries
 #target_link_libraries(hypo PRIVATE spoa pthread sdsl suk slog ${ZLIB_LIBRARIES} ${HTS} OpenMP::OpenMP_CXX "stdc++fs")
-target_link_libraries(hypo PRIVATE spoa pthread sdsl suk slog ${ZLIB_LIBRARIES} ${HTS} OpenMP::OpenMP_CXX sw_wrapper kalloc ksw2_extd2_sse41 ksw2_extd2_sse2)
+target_link_libraries(hypo PRIVATE pthread sdsl suk slog ${ZLIB_LIBRARIES} ${HTS} OpenMP::OpenMP_CXX sw_wrapper kalloc ksw2_extd2_sse41 ksw2_extd2_sse2)
 install(TARGETS hypo DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -67,7 +67,8 @@ static struct option long_options[] = {
     {"nanopore-type", required_argument, NULL, 'n'},
     {"samtools-thread", required_argument, NULL, '@'},
     {"samtools-memory", required_argument, NULL, 'Z'},
-    {"samtools-temp", required_argument, NULL, 'X'},   
+    {"samtools-temp", required_argument, NULL, 'X'},
+    {"debug-mode", no_argument, NULL, 'I'},   
     {NULL, 0, NULL, 0}};
 
 inline bool file_exists (const std::string& name) {
@@ -175,7 +176,7 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames
     std::string name;
     
     /* initialisation */
-    while ((opt = getopt_long(argc, argv, "1:2:3:4:l:s:c:C:w:t:F:S:M:n:@:Z:X:i:", long_options,
+    while ((opt = getopt_long(argc, argv, "1:2:3:4:l:s:c:C:w:t:F:S:M:n:@:Z:X:i:I", long_options,
                         nullptr)) != -1) {
         switch (opt) {
             case '1':
@@ -324,6 +325,8 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames
                     exit(1);
                 }
                 flags.initial_contigs = name;
+                break;
+            case 'I':
                 break;
             default:
                 usage();
