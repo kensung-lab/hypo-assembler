@@ -24,7 +24,8 @@
 #include <mutex>
 #include <algorithm>
 #include <unordered_map>
-#include "spoa/spoa.hpp"
+#include <memory>
+// #include "spoa/spoa.hpp"
 #include "globalDefs.hpp"
 #include "PackedSeq.hpp"
 #include "wrapper.hpp"
@@ -360,8 +361,8 @@ protected:
     std::vector<UINT64> _areflen;
     UINT64 _empty_maxalen;
 
-    static std::vector<std::shared_ptr<spoa::AlignmentEngine>> _alignment_engines_long;
-    static std::vector<std::shared_ptr<spoa::AlignmentEngine>> _alignment_engine_pslong;
+    //static std::vector<std::shared_ptr<spoa::AlignmentEngine>> _alignment_engines_long;
+    //static std::vector<std::shared_ptr<spoa::AlignmentEngine>> _alignment_engine_pslong;
     static std::vector<std::shared_ptr<SWWrapper::Aligner>> _minimap_sw_engines;
     static std::vector<std::shared_ptr<SWWrapper::SWAlignment>> _minimap_sw_results;
 

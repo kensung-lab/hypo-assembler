@@ -5,17 +5,19 @@ include(GNUInstallDirs)
 
 #set( CMAKE_VERBOSE_MAKEFILE on )
 
+add_definitions(-w)
+
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     message("Debug mode")
 endif()
 
-option(optimise_for_native "Build with -march=native" ON)
+# option(optimise_for_native "Build with -march=native" ON)
 
-if(optimise_for_native)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -O3 -march=native")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -O3")
-endif()
+# if(optimise_for_native)
+#     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -O3 -march=native")
+#else()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -O3 -march=x86-64 -mtune=generic")
+# endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,12 +38,17 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/include/MinimizerDeque.hpp
     ${PROJECT_SOURCE_DIR}/include/PackedSeq.hpp
     ${PROJECT_SOURCE_DIR}/include/Window.hpp
+    ${PROJECT_SOURCE_DIR}/include/utils.hpp
+    ${PROJECT_SOURCE_DIR}/include/Objects.hpp
     ${PROJECT_SOURCE_DIR}/src/Alignment.cpp
     ${PROJECT_SOURCE_DIR}/src/Contig.cpp
     ${PROJECT_SOURCE_DIR}/src/Hypo.cpp
     ${PROJECT_SOURCE_DIR}/src/main.cpp
     ${PROJECT_SOURCE_DIR}/src/PackedSeq.cpp
     ${PROJECT_SOURCE_DIR}/src/Window.cpp
+    ${PROJECT_SOURCE_DIR}/src/utils.cpp
+    ${PROJECT_SOURCE_DIR}/src/Polish.cpp
+    ${PROJECT_SOURCE_DIR}/src/Objects.cpp
 )
 
 # Build binaries.
@@ -82,7 +89,7 @@ if(CMAKE_BUILD_TYPE MATCHES Conda)
     endif()
 else()
     message("Installing from Source")
-    set(htslib_root ${PROJECT_SOURCE_DIR}/external/install/htslib)
+    set(htslib_root ${PROJECT_SOURCE_DIR}/external/htslib)
     set(htslib_static_dir ${htslib_root}/lib)
     find_library(HTSFOUND hts PATHS ${htslib_static_dir})
     if (NOT HTSFOUND)

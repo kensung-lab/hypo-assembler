@@ -27,16 +27,15 @@
 
 namespace hypo
 {
+
 Mode Window::_mode = Mode::LSA;
-std::vector<std::shared_ptr<spoa::AlignmentEngine>>
-    Window::_alignment_engines_long;
-std::vector<std::shared_ptr<spoa::AlignmentEngine>>
-    Window::_alignment_engine_pslong;       
+//std::vector<std::shared_ptr<spoa::AlignmentEngine>> Window::_alignment_engines_long;
+//std::vector<std::shared_ptr<spoa::AlignmentEngine>> Window::_alignment_engine_pslong;       
 std::vector<std::shared_ptr<SWWrapper::Aligner>> Window::_minimap_sw_engines;
 std::vector<std::shared_ptr<SWWrapper::SWAlignment>> Window::_minimap_sw_results;
 void Window::prepare_for_poa(const UINT32 num_threads)
 {
-    if (!_alignment_engines_long.empty()) {return;} // Already initialised
+    /*if (!_alignment_engines_long.empty()) {return;} // Already initialised
     for (UINT32 i = 0; i < num_threads; ++i)
     {
         _alignment_engines_long.emplace_back(
@@ -46,7 +45,7 @@ void Window::prepare_for_poa(const UINT32 num_threads)
     _alignment_engines_long.shrink_to_fit();
     _alignment_engine_pslong.emplace_back(
             spoa::AlignmentEngine::Create(spoa::AlignmentType::kOV, lr_match_score,
-                                        lr_misMatch_score, lr_gap_penalty));
+                                        lr_misMatch_score, lr_gap_penalty));*/
 }
 
 void Window::prepare_for_cluster(const UINT32 num_threads)
@@ -92,6 +91,7 @@ void Window::generate_consensus(const UINT32 engine_idx)
 }
 
 void Window::reset_consensus(const std::string& s1,const std::string& s2) {
+    /*
     assert(!s1.empty() && !s2.empty());
     auto graph = spoa::Graph();
     auto alignment = _alignment_engine_pslong[0]->Align(s1, graph);
@@ -107,7 +107,7 @@ void Window::reset_consensus(const std::string& s1,const std::string& s2) {
     }
     for (UINT i=mid; i < msa[0].size(); ++i) {
         if (msa[1][i]!='-') {_consensus+=msa[1][i];}
-    }
+    }*/
 }
 
 // Only for debugging ()
@@ -956,6 +956,7 @@ void Window::generate_pscluster_consensus_short()
 
 void Window::generate_consensus_long()
 {
+    /*
     auto engine_idx = _engine_idx;
     std::string consensus = "";
     auto graph = spoa::Graph();
@@ -1092,7 +1093,7 @@ void Window::generate_consensus_long()
                 }
             }
 
-            /*
+            
             // All clusters with strength about 40% of the heaviset clusters are considered; choose the one with max aligned len
             for (UINT c=0; c<cluslens.size(); ++c) {
                 if (counts[c] >= std::ceil(max_cnt*LONG_CLUS_SECOND_TH)) { // consider this cluster
@@ -1115,7 +1116,7 @@ void Window::generate_consensus_long()
                     }
                 }
             }
-            */
+            
             num_added_arms = counts[max_clus_id];
             chosen_cluslen = cluslens[max_clus_id];
             if(_num_empty > 0) {                
@@ -1239,6 +1240,7 @@ void Window::generate_consensus_long()
     {
         set_consensus(_draft.unpack());
     }
+    * */
 }
 
 std::string Window::curate_long(const std::string &con, const std::vector<UINT32> &dst, const UINT32 num_arms)

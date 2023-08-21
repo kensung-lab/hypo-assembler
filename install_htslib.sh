@@ -1,5 +1,5 @@
 #!/bin/bash
-cd external/install/htslib;
+cd external/htslib;
 autoreconf;
 ./configure --prefix=$(pwd) --disable-bz2 --disable-lzma;
 make; make install;
