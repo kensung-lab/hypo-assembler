@@ -119,6 +119,7 @@ docker pull jcsyd/hypo-assembler:v0.9
     -I or --debug
     Turns on debug mode to print out temporary files. Not recommended due to high I/O requirements, unless there is an issue encountered.
     [Default] Off
+```
 
 ### Demo
 
@@ -129,6 +130,6 @@ To run the demo, after compilation, run the following command:
 ```
 hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 demo/hic2.fq -t 40 -s 1500000
 ```
+
 This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes.
 The expected result is final_1.fa and final_2.fa that is (interchangably) demo/ref1.fa and demo/ref2.fa.
-
