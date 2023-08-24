@@ -132,4 +132,6 @@ hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 dem
 ```
 
 This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes.
-The expected result is final_1.fa and final_2.fa that is (interchangably) demo/ref1.fa and demo/ref2.fa.
+The expected result is hypo_wd/final_1.fa and hypo_wd/final_2.fa.
+
+To verify the result, refer to [this page](https://github.com/kensung-lab/hypo-assembler/tree/main/eval).

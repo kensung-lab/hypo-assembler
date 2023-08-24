@@ -9,18 +9,15 @@ The toolkit is written on python3. The following python packages are needed:
 - pysam (https://github.com/pysam-developers/pysam)
 - BioPython (https://biopython.org/)
 
-The following packages are also needed for the different evaluations:
-- minimap2 (https://github.com/lh3/minimap2)
-- YAK (https://github.com/lh3/yak)
-- QUAST (https://github.com/ablab/quast)
-
-## Usage
-
-Evaluation is divided into several evaluation modules. Depending on the available dataset, some modules can be run.
-
-### Error evaluation for diploid genome
+## Error evaluation for diploid genome
 
 The requirements for diploid genome error evaluation is a diploid reference genome, paternal and maternal.
+
+### Pre-requisite
+
+The only prerequisite for error evaluation is minimap2 (https://github.com/lh3/minimap2)
+
+### Usage 
 
 ```console
  Usage: python eval_script.py diploid_error <args>
@@ -50,9 +47,18 @@ The requirements for diploid genome error evaluation is a diploid reference geno
     [Default] $PWD/hypo_eval_wd
 ```
 
-### Assembly contiguity evaluation for diploid genome
+## Assembly contiguity evaluation for diploid genome
 
 The requirements for diploid genome error evaluation is a diploid reference genome, paternal and maternal.
+
+### Pre-requisite
+
+The prerequisites for contiguity evaluation are:
+- minimap2 (https://github.com/lh3/minimap2)
+- QUAST (https://github.com/ablab/quast)
+
+### Usage 
+
 
 ```console
  Usage: python eval_script.py diploid_contiguity <args>
