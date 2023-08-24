@@ -134,4 +134,17 @@ hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 dem
 This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes.
 The expected result is hypo_wd/final_1.fa and hypo_wd/final_2.fa.
 
-To verify the result, refer to [this page](https://github.com/kensung-lab/hypo-assembler/tree/main/eval).
+To verify the result, you can run the diploid error evaluation (refer to [this page](https://github.com/kensung-lab/hypo-assembler/tree/main/eval))
+
+Make sure minimap2 is installed on your system path and python3 is available. Then, you can run:
+
+```
+python eval/eval_script.py -1 hypo_wd/final_1.fa -2 hypo_wd/final_2.fa -p demo/ref1.fa -m demo/ref2.fa -t 40 diploid_error
+```
+
+The expected result is something similar to:
+```
+Assembly 1 accuracy is: 99.99887%
+Assembly 2 accuracy is: 99.99827%
+```
+The expected accuracy is greater than 99.9% for the demo dataset.
