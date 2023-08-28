@@ -68,7 +68,9 @@ static struct option long_options[] = {
     {"samtools-thread", required_argument, NULL, '@'},
     {"samtools-memory", required_argument, NULL, 'Z'},
     {"samtools-temp", required_argument, NULL, 'X'},
-    {"debug-mode", no_argument, NULL, 'I'},   
+    {"debug-mode", no_argument, NULL, 'I'},
+    {"short-align", required_argument, NULL, 'b'},
+    {"long-align", required_argument, NULL, 'B'}, 
     {NULL, 0, NULL, 0}};
 
 inline bool file_exists (const std::string& name) {
@@ -136,6 +138,9 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames
     flags.run_mode = "full";
     flags.genome_size = 3000000000;
     
+    flags.short_initial_mapping_path = "";
+    flags.long_initial_mapping_path = "";
+    
     bool short_1_check = false;
     bool short_2_check = false;
     
@@ -176,7 +181,7 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames
     std::string name;
     
     /* initialisation */
-    while ((opt = getopt_long(argc, argv, "1:2:3:4:l:s:c:C:w:t:F:S:M:n:@:Z:X:i:I", long_options,
+    while ((opt = getopt_long(argc, argv, "1:2:3:4:l:s:c:C:w:t:F:S:M:n:@:Z:X:i:Ib:B:", long_options,
                         nullptr)) != -1) {
         switch (opt) {
             case '1':
@@ -327,6 +332,12 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags, FileNames& filenames
                 flags.initial_contigs = name;
                 break;
             case 'I':
+                break;
+            case 'b':
+                flags.short_initial_mapping_path = std::string(optarg);
+                break;
+            case 'B':
+                flags.long_initial_mapping_path = std::string(optarg);
                 break;
             default:
                 usage();
@@ -696,39 +707,48 @@ int main(int argc, char **argv) {
         }
         
         // included in flye run: map short and long reads
-        std::string minimap2_short_command = flags.minimap2_path + " -ax sr -t " + std::to_string(flags.threads)  + " ";
-        minimap2_short_command += flags.initial_assembly_path + " " + flags.short_path_1 + " " + flags.short_path_2;
-        minimap2_short_command += " | " + flags.samtools_path + " view -bS | ";
-        minimap2_short_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
-        if(flags.samtools_memory.size() > 0) minimap2_short_command += " -m " + flags.samtools_memory;
-        if(flags.samtools_temp.size() > 0) minimap2_short_command += " -T " + flags.samtools_temp;
-        minimap2_short_command += " -o " + flags.output_directory + "/short_read_initial.bam";
+        if(flags.short_initial_mapping_path.size() == 0) {
         
-        monitor.start();
+            std::string minimap2_short_command = flags.minimap2_path + " -ax sr -t " + std::to_string(flags.threads)  + " ";
+            minimap2_short_command += flags.initial_assembly_path + " " + flags.short_path_1 + " " + flags.short_path_2;
+            minimap2_short_command += " | " + flags.samtools_path + " view -bS | ";
+            minimap2_short_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
+            if(flags.samtools_memory.size() > 0) minimap2_short_command += " -m " + flags.samtools_memory;
+            if(flags.samtools_temp.size() > 0) minimap2_short_command += " -T " + flags.samtools_temp;
+            minimap2_short_command += " -o " + flags.output_directory + "/short_read_initial.bam";
+            
+            monitor.start();
+            
+            std::cout << minimap2_short_command << std::endl;
+            system(minimap2_short_command.c_str());
+            tm = monitor.stop("[Hypo:main]: Minimap2: Mapping short reads to initial assembly.");
+            fprintf(stdout, "[Hypo::main] //////////////////\n Minimap2 - short reads done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+            
+            flags.short_initial_mapping_path = flags.output_directory + "/short_read_initial.bam";
+        } else {
+            fprintf(stdout, "[Hypo::main] //////////////////\n Short reads alignments are loaded from %s. \n [Hypo::Hypo] ////////////////// \n%s\n", flags.short_initial_mapping_path.c_str());
+        }
         
-        std::cout << minimap2_short_command << std::endl;
-        system(minimap2_short_command.c_str());
-        tm = monitor.stop("[Hypo:main]: Minimap2: Mapping short reads to initial assembly.");
-        fprintf(stdout, "[Hypo::main] //////////////////\n Minimap2 - short reads done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
-        
-        flags.short_initial_mapping_path = flags.output_directory + "/short_read_initial.bam";
-        
-        std::string minimap2_long_command = flags.minimap2_path + " -ax map-ont -t " + std::to_string(flags.threads) + " ";
-        minimap2_long_command += flags.initial_assembly_path + " " + flags.long_path;
-        minimap2_long_command += " | " + flags.samtools_path + " view -bS | ";
-        minimap2_long_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
-        if(flags.samtools_memory.size() > 0) minimap2_long_command += " -m " + flags.samtools_memory;
-        if(flags.samtools_temp.size() > 0) minimap2_long_command += " -T " + flags.samtools_temp;
-        minimap2_long_command += " -o " + flags.output_directory + "/long_read_initial.bam";
-        
-        monitor.start();
-        std::cout << minimap2_long_command << std::endl;
-        
-        system(minimap2_long_command.c_str());
-        tm = monitor.stop("[Hypo:main]: Minimap2: Mapping long reads to initial assembly.");
-        fprintf(stdout, "[Hypo::main] //////////////////\n Minimap2 - long reads done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
-        
-        flags.long_initial_mapping_path = flags.output_directory + "/long_read_initial.bam";
+        if(flags.long_initial_mapping_path.size() == 0) {
+            std::string minimap2_long_command = flags.minimap2_path + " -ax map-ont -t " + std::to_string(flags.threads) + " ";
+            minimap2_long_command += flags.initial_assembly_path + " " + flags.long_path;
+            minimap2_long_command += " | " + flags.samtools_path + " view -bS | ";
+            minimap2_long_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
+            if(flags.samtools_memory.size() > 0) minimap2_long_command += " -m " + flags.samtools_memory;
+            if(flags.samtools_temp.size() > 0) minimap2_long_command += " -T " + flags.samtools_temp;
+            minimap2_long_command += " -o " + flags.output_directory + "/long_read_initial.bam";
+            
+            monitor.start();
+            std::cout << minimap2_long_command << std::endl;
+            
+            system(minimap2_long_command.c_str());
+            tm = monitor.stop("[Hypo:main]: Minimap2: Mapping long reads to initial assembly.");
+            fprintf(stdout, "[Hypo::main] //////////////////\n Minimap2 - long reads done. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+            
+            flags.long_initial_mapping_path = flags.output_directory + "/long_read_initial.bam";
+        } else{
+            fprintf(stdout, "[Hypo::main] //////////////////\n Long reads alignments are loaded from %s. \n [Hypo::Hypo] ////////////////// \n%s\n", flags.long_initial_mapping_path.c_str());
+        }
     }
     
     monitor.start();

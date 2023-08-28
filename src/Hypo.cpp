@@ -1005,9 +1005,6 @@ int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & fla
     utils::load_contigs(objects, flags.initial_assembly_path);
     //utils::load_long_alignments(objects, flags.long_initial_mapping_path);
     std::string tm = objects.monitor.stop("[Hypo:misjoin_detection]: Long reads alignments parsed.");
-    
-
-    
     utils::write_contigs(objects, flags.output_directory + "/initial_test.fa");
     
     
@@ -1019,6 +1016,14 @@ int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & fla
     
     utils::write_contigs(objects, flags.output_directory + "/misjoin.fa");
     
+    objects.monitor.start();
+    utils::realign_long_reads(objects, flags, flags.output_directory + "/misjoin.fa", flags.output_directory + "/misjoin_long.bam");
+    
+    std::cout << "asd" << std::endl;
+    
+    tm = objects.monitor.stop("[Hypo:misjoin_detection]: Reads realigned.");
+    fprintf(stderr, "[Hypo::misjoin_detection] //////////////////\n Misjoins: Reads Realigned. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
     // will overwrite the contigs and the long reads alignments
     objects.monitor.start();
     overlap_detection(objects);
@@ -1026,6 +1031,16 @@ int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & fla
     fprintf(stderr, "[Hypo::overlap_detection] //////////////////\n Overlaps Found. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
     
     utils::write_contigs(objects, flags.output_directory + "/overlap.fa");
+    
+    objects.monitor.start();
+    utils::realign_long_reads(objects, flags, flags.output_directory + "/overlap.fa", flags.output_directory + "/overlap_long.bam");
+    tm = objects.monitor.stop("[Hypo:misjoin_detection]: Reads realigned.");
+    fprintf(stderr, "[Hypo::misjoin_detection] //////////////////\n Misjoins: Reads Realigned. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
+    
+    objects.monitor.start();
+    utils::realign_short_reads(objects, flags, flags.output_directory + "/overlap.fa", flags.output_directory + "/misjoin_short.bam");
+    tm = objects.monitor.stop("[Hypo:misjoin_detection]: Reads realigned.");
+    fprintf(stderr, "[Hypo::misjoin_detection] //////////////////\n Misjoins: Reads Realigned. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
     
     polish(objects, flags);
     

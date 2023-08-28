@@ -128,5 +128,35 @@ namespace hypo {
             return 0;
         }
         
+        int realign_long_reads(hypo::Objects & objects, const hypo::InputFlags & flags, const std::string contig_path, const std::string write_path) {
+            std::string minimap2_long_command = "";
+            minimap2_long_command += "{ " + flags.minimap2_path + " -ax map-ont -t " + std::to_string(flags.threads) + " ";
+            minimap2_long_command += contig_path + " " + flags.long_path;
+            minimap2_long_command += " | " + flags.samtools_path + " view -bS | ";
+            minimap2_long_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
+            if(flags.samtools_memory.size() > 0) minimap2_long_command += " -m " + flags.samtools_memory;
+            if(flags.samtools_temp.size() > 0) minimap2_long_command += " -T " + flags.samtools_temp;
+            minimap2_long_command += " -o " + write_path;
+            minimap2_long_command += "; } 2> /dev/null";
+            system(minimap2_long_command.c_str());
+            
+            return 0;
+        }
+        
+        int realign_short_reads(hypo::Objects & objects, const hypo::InputFlags & flags, const std::string contig_path, const std::string write_path) {
+            std::string minimap2_short_command = "{ " + flags.minimap2_path + " -ax sr -t " + std::to_string(flags.threads)  + " ";
+            minimap2_short_command += contig_path + " " + flags.short_path_1 + " " + flags.short_path_2;
+            minimap2_short_command += " | " + flags.samtools_path + " view -bS | ";
+            minimap2_short_command += flags.samtools_path + " sort -@ " + std::to_string(flags.samtools_threads);
+            if(flags.samtools_memory.size() > 0) minimap2_short_command += " -m " + flags.samtools_memory;
+            if(flags.samtools_temp.size() > 0) minimap2_short_command += " -T " + flags.samtools_temp;
+            minimap2_short_command += " -o " + write_path;
+            minimap2_short_command += "; } 2> /dev/null";
+            std::cout << minimap2_short_command << std::endl;
+            system(minimap2_short_command.c_str());
+            
+            return 0;
+        }
+        
     }
 } // namespace hypo

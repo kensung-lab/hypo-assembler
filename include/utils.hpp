@@ -42,6 +42,9 @@ namespace hypo
         int load_short_alignments(hypo::Objects & objects, const std::string load_path);
         int load_long_alignments(hypo::Objects & objects, const std::string load_path);
         int initialize_solid_kmers(hypo::Objects & objects, const int k, const std::string load_path_1, const std::string load_path_2);
+        
+        int realign_long_reads(hypo::Objects & objects, const hypo::InputFlags & flags, const std::string contig_path, const std::string write_path);
+        int realign_short_reads(hypo::Objects & objects, const hypo::InputFlags & flags, const std::string contig_path, const std::string write_path);
     }
 } // namespace hypo
 #endif
