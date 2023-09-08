@@ -9,6 +9,11 @@ The toolkit is written on python3. The following python packages are needed:
 - pysam (https://github.com/pysam-developers/pysam)
 - BioPython (https://biopython.org/)
 
+Available evaluations are:
+- Error evaluations
+- Assembly contiguity evaluation
+- Haplotype mixture evaluation
+
 ## Error evaluation for diploid genome
 
 The requirements for diploid genome error evaluation is a diploid reference genome, paternal and maternal.

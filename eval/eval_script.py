@@ -137,7 +137,9 @@ def error_assessment(args):
                 sum_len += contig_to_score_m[ctg][1]
     
     print("Assembly 2 accuracy is: %.5f%%" % (100*(sum_len - sum_nm) / sum_len))
-    
+
+def haplotype_assessment:
+    pass
     
 def main():
     parser = argparse.ArgumentParser()
