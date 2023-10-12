@@ -138,7 +138,7 @@ def error_assessment(args):
     
     print("Assembly 2 accuracy is: %.5f%%" % (100*(sum_len - sum_nm) / sum_len))
 
-def haplotype_assessment:
+def haplotype_assessment():
     pass
     
 def main():

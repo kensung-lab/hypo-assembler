@@ -1024,7 +1024,7 @@ int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & fla
     // will overwrite the contigs and the long reads alignments
     objects.monitor.start();
     overlap_detection(objects);
-    tm = objects.monitor.stop("[Hypo:overlap_detection]: Overlap Detected.");
+    tm = objects.monitor.stop("[Hypo:overlap_detection]: Overlaps Detected.");
     fprintf(stderr, "[Hypo::overlap_detection] //////////////////\n Overlaps Found. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
     
     utils::write_contigs(objects, flags.output_directory + "/overlap.fa");
