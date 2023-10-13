@@ -1125,7 +1125,7 @@ int overlap_detection(hypo::Objects & objects) {
     std::vector<std::string> new_contig_ids;
     
     //std::random_device rd;     // Only used once to initialise (seed) engine
-    std::mt19937 rng(0); //rd());    // Random-number engine used (Mersenne-Twister in this case)
+    std::mt19937 rng(1); //rd());    // Random-number engine used (Mersenne-Twister in this case)
     std::uniform_int_distribution<int> uni(objects.contigs.size() / 3, objects.contigs.size() / 2); // Guaranteed unbiased
     
     uint32_t target = uni(rng);
