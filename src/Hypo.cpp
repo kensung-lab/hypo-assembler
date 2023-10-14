@@ -1191,7 +1191,7 @@ int scaffold_main(hypo::Objects & objects) {
     
     
     //std::random_device rd;     // Only used once to initialise (seed) engine
-    std::mt19937 rng(0); //rd());    // Random-number engine used (Mersenne-Twister in this case)
+    std::mt19937 rng(1); //rd());    // Random-number engine used (Mersenne-Twister in this case)
     
     std::uniform_int_distribution<int> addr(100, 150);
     std::uniform_int_distribution<int> base(1, 5);
