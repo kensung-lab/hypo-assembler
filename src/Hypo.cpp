@@ -1024,7 +1024,7 @@ int overlap_detection_main(hypo::Objects & objects, const hypo::InputFlags & fla
     // will overwrite the contigs and the long reads alignments
     objects.monitor.start();
     overlap_detection(objects);
-    tm = objects.monitor.stop("[Hypo:overlap_detection]: Overlap Detected.");
+    tm = objects.monitor.stop("[Hypo:overlap_detection]: Overlaps Detected.");
     fprintf(stderr, "[Hypo::overlap_detection] //////////////////\n Overlaps Found. \n [Hypo::Hypo] ////////////////// \n%s\n", tm.c_str());
     
     utils::write_contigs(objects, flags.output_directory + "/overlap.fa");
@@ -1125,7 +1125,7 @@ int overlap_detection(hypo::Objects & objects) {
     std::vector<std::string> new_contig_ids;
     
     //std::random_device rd;     // Only used once to initialise (seed) engine
-    std::mt19937 rng(0); //rd());    // Random-number engine used (Mersenne-Twister in this case)
+    std::mt19937 rng(1); //rd());    // Random-number engine used (Mersenne-Twister in this case)
     std::uniform_int_distribution<int> uni(objects.contigs.size() / 3, objects.contigs.size() / 2); // Guaranteed unbiased
     
     uint32_t target = uni(rng);
@@ -1191,7 +1191,7 @@ int scaffold_main(hypo::Objects & objects) {
     
     
     //std::random_device rd;     // Only used once to initialise (seed) engine
-    std::mt19937 rng(0); //rd());    // Random-number engine used (Mersenne-Twister in this case)
+    std::mt19937 rng(1); //rd());    // Random-number engine used (Mersenne-Twister in this case)
     
     std::uniform_int_distribution<int> addr(100, 150);
     std::uniform_int_distribution<int> base(1, 5);
