@@ -137,6 +137,11 @@ To run the demo:
 
 #### Running demo with manual compilation
 
+For the puposes of this demo, the following external library is assumed:
+- [minimap2 2.26]{https://github.com/lh3/minimap2/releases/tag/v2.26}
+- [FlyE 2.92]{https://github.com/fenderglass/Flye/releases/tag/2.9.2}
+- [KMC 3.2.2]{https://github.com/refresh-bio/KMC/releases/tag/v3.2.2}
+
 Assuming the above exact commands for compilation, hypo executable will be in build/bin/hypo
 After compilation, run the following command from the top directory:
 
@@ -146,6 +151,8 @@ build/bin/hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1
 
 This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes, depending on how your setup.
 The resulting assembly are `hypo_wd/final_1.fa` and `hypo_wd/final_2.fa`.
+
+
 
 To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
 
@@ -161,7 +168,7 @@ If both commands don't output anything, then the program has run without issues.
 Assuming the directory of the demo is /home/testing/hypo_assembler/demo and you want to output to /home/testing/hypo_wd, you can run the following command:
 
 ```
-docker run -v /home/testing/hypo_assembler/demo:/inputs:ro -v /home/testing/hypo_wd:/output hypo_dev:v0.9 -1 /inputs/il1.fq -2 /inputs/il2.fq -l /inputs/nanopore.fq.gz -t 40 -3 /inputs/hic1.fq -4 /inputs/hic4.fq -w /output
+docker run -v /home/testing/hypo_assembler/demo:/inputs:ro -v /home/testing/hypo_wd:/output jcsyd/hypo-assembler:v0.9 -1 /inputs/il1.fq -2 /inputs/il2.fq -l /inputs/nanopore.fq.gz -t 40 -3 /inputs/hic1.fq -4 /inputs/hic2.fq -w /output -s 1500000
 ```
 
 To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
