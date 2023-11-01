@@ -133,26 +133,42 @@ docker pull jcsyd/hypo-assembler:v0.9
 
 We have included a small demo data to test the installation in demo/
 
-To run the demo, after compilation, run the following command:
+To run the demo:
+
+#### Running demo with manual compilation
+
+Assuming the above exact commands for compilation, hypo executable will be in build/bin/hypo
+After compilation, run the following command from the top directory:
 
 ```
-hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 demo/hic2.fq -t 40 -s 1500000
+build/bin/hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 demo/hic2.fq -t 40 -s 1500000
 ```
 
-This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes.
+This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes, depending on how your setup.
 The resulting assembly are `hypo_wd/final_1.fa` and `hypo_wd/final_2.fa`.
 
-To verify the result, you can run the diploid error evaluation (refer to [this page](https://github.com/kensung-lab/hypo-assembler/tree/main/eval))
-
-Make sure minimap2 is installed on your system path and python3 is available. Then, you can run:
+To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
 
 ```
-python eval/eval_script.py -1 hypo_wd/final_1.fa -2 hypo_wd/final_2.fa -p demo/ref1.fa -m demo/ref2.fa -t 40 diploid_error
+diff hypo_wd/final_1.fa demo/expected_result/final_1.fa
+diff hypo_wd/final_2.fa demo/expected_result/final_2.fa 
 ```
 
-The expected result is something similar to:
+If both commands don't output anything, then the program has run without issues.
+
+#### Running demo with docker
+
+Assuming the directory of the demo is /home/testing/hypo_assembler/demo and you want to output to /home/testing/hypo_wd, you can run the following command:
+
 ```
-Assembly 1 accuracy is: 99.99887%
-Assembly 2 accuracy is: 99.99827%
+docker run -v /home/testing/hypo_assembler/demo:/inputs:ro -v /home/testing/hypo_wd:/output hypo_dev:v0.9 -1 /inputs/il1.fq -2 /inputs/il2.fq -l /inputs/nanopore.fq.gz -t 40 -3 /inputs/hic1.fq -4 /inputs/hic4.fq -w /output
 ```
-The expected accuracy is greater than 99.9% for the demo dataset.
+
+To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
+
+```
+diff /home/testing/hypo_wd/final_1.fa /home/testing/hypo_assembler/demo/expected_result/final_1.fa
+diff /home/testing/hypo_wd/final_2.fa /home/testing/hypo_assembler/demo/expected_result/final_2.fa 
+```
+
+If both commands don't output anything, then the program has run without issues.
