@@ -1,9 +1,10 @@
 #!/bin/sh
 # simple_test_driver.sh -- shell functions for test scripts
 #
-#    Copyright (C) 2017 Genome Research Ltd.
+#    Copyright (C) 2017-2018 Genome Research Ltd.
 #
-#    Author: Robert Davies <rmd@sanger.ac.uk>
+#    Author: James Bonfield <jkb@sanger.ac.uk>
+#            Robert Davies <rmd@sanger.ac.uk>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +51,7 @@ run_test() {
         else
             # Expected non-zero exit code and got it
             r="P"
+            rm -f _out.tmp _err.tmp
         fi
     elif [ "$p" = "N" ]
     then
@@ -68,11 +70,12 @@ run_test() {
             # Output differed
             r="F"
             y="output"
+            rm -f _out.tmp2
         fi
     else
         # Expected zero exit code and got it.
         r="P"
-        rm -f _out.tmp _out.tmp2 _err.tmp
+        rm -f _out.tmp _err.tmp
     fi
 
     if [ "$r" = "F" ]
@@ -106,6 +109,7 @@ run_test() {
                 ;;
             *)
                 echo "XFAIL: $@"
+                rm -f _out.tmp _err.tmp
                 nefail=`expr $nefail + 1`
                 ;;
         esac

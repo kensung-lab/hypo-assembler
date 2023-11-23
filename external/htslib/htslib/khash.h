@@ -1,6 +1,7 @@
 /* The MIT License
 
    Copyright (c) 2008, 2009, 2011 by Attractive Chaos <attractor@live.co.uk>
+   Copyright (C) 2014-2015, 2018 Genome Research Ltd.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -128,7 +129,9 @@ int main() {
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include <htslib/kstring.h>
+
+#include "kstring.h"
+#include "kroundup.h"
 
 /* compiler specific configuration */
 
@@ -444,7 +447,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
     key ^=  (key >> 16);
     return key;
 }
-#define kh_int_hash_func2(k) __ac_Wang_hash((khint_t)key)
+#define kh_int_hash_func2(key) __ac_Wang_hash((khint_t)(key))
 
 /* --- END OF HASH FUNCTIONS --- */
 
@@ -601,7 +604,7 @@ static kh_inline khint_t __ac_Wang_hash(khint_t key)
 		code;												\
 	} }
 
-/* More conenient interfaces */
+/* More convenient interfaces */
 
 /*! @function
   @abstract     Instantiate a hash set containing integer keys

@@ -1,6 +1,6 @@
 /*  test/pileup.c -- simple pileup tester
 
-    Copyright (C) 2014,2018 Genome Research Ltd.
+    Copyright (C) 2014,2018-2019 Genome Research Ltd.
 
     Author: James Bonfield <jkb@sanger.ac.uk>
 
@@ -47,8 +47,9 @@ samtools mpileup -B -Q 0 in.bam | perl -lane \
 #include <errno.h>
 #include <ctype.h>
 #include <unistd.h>
-#include "htslib/sam.h"
-#include "htslib/kstring.h"
+
+#include "../htslib/sam.h"
+#include "../htslib/kstring.h"
 
 #define MIN(a,b) ((a)<(b)?(a):(b))
 

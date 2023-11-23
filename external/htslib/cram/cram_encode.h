@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2013 Genome Research Ltd.
+Copyright (c) 2012-2013, 2018 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,8 @@ int cram_put_bam_seq(cram_fd *fd, bam_seq_t *b);
  *         NULL on failure
  */
 cram_block *cram_encode_compression_header(cram_fd *fd, cram_container *c,
-                                           cram_block_compression_hdr *h);
+                                           cram_block_compression_hdr *h,
+                                           int embed_ref);
 
 /*! INTERNAL:
  * Encodes a slice compression header.
@@ -106,7 +107,7 @@ int cram_encode_container(cram_fd *fd, cram_container *c);
  *
  * See cram_next_container() and cram_close().
  */
-void cram_update_curr_slice(cram_container *c);
+void cram_update_curr_slice(cram_container *c, int version);
 
 #ifdef __cplusplus
 }

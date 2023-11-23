@@ -1,6 +1,6 @@
 /*  hfile_internal.h -- internal parts of low-level input/output streams.
 
-    Copyright (C) 2013-2016 Genome Research Ltd.
+    Copyright (C) 2013-2016, 2019 Genome Research Ltd.
 
     Author: John Marshall <jm18@sanger.ac.uk>
 
@@ -27,6 +27,7 @@ DEALINGS IN THE SOFTWARE.  */
 
 #include <stdarg.h>
 
+#include "htslib/hts_defs.h"
 #include "htslib/hfile.h"
 
 #include "textutils_internal.h"
@@ -56,6 +57,11 @@ struct BGZF;
  */
 struct hFILE *bgzf_hfile(struct BGZF *fp);
 
+/*!
+  @abstract Closes all hFILE plugins that have been loaded
+*/
+void hfile_shutdown(int do_close_plugin);
+
 struct hFILE_backend {
     /* As per read(2), returning the number of bytes read (possibly 0) or
        negative (and setting errno) on errors.  Front-end code will call this
@@ -84,11 +90,13 @@ struct hFILE_backend {
 
 /* May be called by hopen_*() functions to decode a fopen()-style mode into
    open(2)-style flags.  */
+HTSLIB_EXPORT
 int hfile_oflags(const char *mode);
 
 /* Must be called by hopen_*() functions to allocate the hFILE struct and set
    up its base.  Capacity is a suggested buffer size (e.g., via fstat(2))
    or 0 for a default-sized buffer.  */
+HTSLIB_EXPORT
 hFILE *hfile_init(size_t struct_size, const char *mode, size_t capacity);
 
 /* Alternative to hfile_init() for in-memory backends for which the base
@@ -101,6 +109,7 @@ hFILE *hfile_init_fixed(size_t struct_size, const char *mode,
 /* May be called by hopen_*() functions to undo the effects of hfile_init()
    in the event opening the stream subsequently fails.  (This is safe to use
    even if fp is NULL.  This takes care to preserve errno.)  */
+HTSLIB_EXPORT
 void hfile_destroy(hFILE *fp);
 
 
@@ -132,10 +141,13 @@ struct hFILE_scheme_handler {
 };
 
 /* May be used as an isremote() function in simple cases.  */
+HTSLIB_EXPORT
 extern int hfile_always_local (const char *fname);
+HTSLIB_EXPORT
 extern int hfile_always_remote(const char *fname);
 
 /* Should be called by plugins for each URL scheme they wish to handle.  */
+HTSLIB_EXPORT
 void hfile_add_scheme_handler(const char *scheme,
                               const struct hFILE_scheme_handler *handler);
 
@@ -157,6 +169,7 @@ struct hFILE_plugin {
 #define PLUGIN_GLOBAL(identifier,suffix) identifier
 
 /* Plugins must define an entry point with this signature.  */
+HTSLIB_EXPORT
 extern int hfile_plugin_init(struct hFILE_plugin *self);
 
 #else
@@ -171,9 +184,6 @@ extern int hfile_plugin_init_libcurl(struct hFILE_plugin *self);
 extern int hfile_plugin_init_s3(struct hFILE_plugin *self);
 extern int hfile_plugin_init_s3_write(struct hFILE_plugin *self);
 #endif
-
-/* This one is never built as a separate plugin.  */
-extern int hfile_plugin_init_net(struct hFILE_plugin *self);
 
 // Callback to allow headers to be set in http connections.  Currently used
 // to allow s3 to renew tokens when seeking.  Kept internal for now,

@@ -1,7 +1,7 @@
 /* bgzip.c -- Block compression/decompression utility.
 
    Copyright (C) 2008, 2009 Broad Institute / Massachusetts Institute of Technology
-   Copyright (C) 2010, 2013-2019 Genome Research Ltd.
+   Copyright (C) 2010, 2013-2019, 2021-2022 Genome Research Ltd.
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -33,16 +34,16 @@
 #include <stdarg.h>
 #include <getopt.h>
 #include <inttypes.h>
-#include <sys/stat.h>
 #include "htslib/bgzf.h"
 #include "htslib/hts.h"
+#include "htslib/hfile.h"
 
 #ifdef _WIN32
 #  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
 #endif
 
-static const int WINDOW_SIZE = 64 * 1024;
+static const int WINDOW_SIZE = BGZF_BLOCK_SIZE;
 
 static void error(const char *format, ...)
 {
@@ -53,19 +54,53 @@ static void error(const char *format, ...)
     exit(EXIT_FAILURE);
 }
 
+static int ask_yn()
+{
+    char line[1024];
+    if (fgets(line, sizeof line, stdin) == NULL)
+        return 0;
+    return line[0] == 'Y' || line[0] == 'y';
+}
+
 static int confirm_overwrite(const char *fn)
 {
     int save_errno = errno;
     int ret = 0;
 
     if (isatty(STDIN_FILENO)) {
-        char c;
         fprintf(stderr, "[bgzip] %s already exists; do you wish to overwrite (y or n)? ", fn);
-        if (scanf("%c", &c) == 1 && (c == 'Y' || c == 'y')) ret = 1;
+        if (ask_yn()) ret = 1;
     }
 
     errno = save_errno;
     return ret;
+}
+
+static int known_extension(const char *ext)
+{
+    static const char *known[] = {
+        "gz", "bgz", "bgzf",
+        NULL
+    };
+
+    const char **p;
+    for (p = known; *p; p++)
+        if (strcasecmp(ext, *p) == 0) return 1;
+    return 0;
+}
+
+static int confirm_filename(int *is_forced, const char *name, const char *ext)
+{
+    if (*is_forced) {
+        (*is_forced)--;
+        return 1;
+    }
+
+    if (!isatty(STDIN_FILENO))
+        return 0;
+
+    fprintf(stderr, "[bgzip] .%s is not a known extension; do you wish to decompress to %s (y or n)? ", ext, name);
+    return ask_yn();
 }
 
 static int bgzip_main_usage(FILE *fp, int status)
@@ -78,24 +113,25 @@ static int bgzip_main_usage(FILE *fp, int status)
     fprintf(fp, "   -c, --stdout               write on standard output, keep original files unchanged\n");
     fprintf(fp, "   -d, --decompress           decompress\n");
     fprintf(fp, "   -f, --force                overwrite files without asking\n");
+    fprintf(fp, "   -g, --rebgzip              use an index file to bgzip a file\n");
     fprintf(fp, "   -h, --help                 give this help\n");
     fprintf(fp, "   -i, --index                compress and create BGZF index\n");
     fprintf(fp, "   -I, --index-name FILE      name of BGZF index file [file.gz.gzi]\n");
+    fprintf(fp, "   -k, --keep                 don't delete input files during operation\n");
     fprintf(fp, "   -l, --compress-level INT   Compression level to use when compressing; 0 to 9, or -1 for default [-1]\n");
     fprintf(fp, "   -r, --reindex              (re)index compressed file\n");
-    fprintf(fp, "   -g, --rebgzip              use an index file to bgzip a file\n");
     fprintf(fp, "   -s, --size INT             decompress INT bytes (uncompressed size)\n");
+    fprintf(fp, "   -t, --test                 test integrity of compressed file\n");
+    fprintf(fp, "       --binary               Don't align blocks with text lines\n");
     fprintf(fp, "   -@, --threads INT          number of compression threads to use [1]\n");
-    fprintf(fp, "   -t, --test                 test integrity of compressed file");
-    fprintf(fp, "\n");
     return status;
 }
 
 int main(int argc, char **argv)
 {
-    int c, compress, compress_level = -1, pstdout, is_forced, test, index = 0, rebgzip = 0, reindex = 0;
+    int c, compress, compress_level = -1, pstdout, is_forced, test, index = 0, rebgzip = 0, reindex = 0, keep, binary;
     BGZF *fp;
-    void *buffer;
+    char *buffer;
     long start, end, size;
     char *index_fname = NULL;
     int threads = 1;
@@ -116,17 +152,19 @@ int main(int argc, char **argv)
         {"threads", required_argument, NULL, '@'},
         {"test", no_argument, NULL, 't'},
         {"version", no_argument, NULL, 1},
+        {"keep", no_argument, NULL, 'k'},
+        {"binary", no_argument, NULL, 2},
         {NULL, 0, NULL, 0}
     };
 
-    compress = 1; pstdout = 0; start = 0; size = -1; end = -1; is_forced = 0; test = 0;
-    while((c  = getopt_long(argc, argv, "cdh?fb:@:s:iI:l:grt",loptions,NULL)) >= 0){
+    compress = 1; pstdout = 0; start = 0; size = -1; end = -1; is_forced = 0; test = 0; keep = 0; binary = 0;
+    while((c  = getopt_long(argc, argv, "cdh?fb:@:s:iI:l:grtk",loptions,NULL)) >= 0){
         switch(c){
         case 'd': compress = 0; break;
         case 'c': pstdout = 1; break;
         case 'b': start = atol(optarg); compress = 0; pstdout = 1; break;
         case 's': size = atol(optarg); pstdout = 1; break;
-        case 'f': is_forced = 1; break;
+        case 'f': is_forced++; break;
         case 'i': index = 1; break;
         case 'I': index_fname = optarg; break;
         case 'l': compress_level = atol(optarg); break;
@@ -134,11 +172,13 @@ int main(int argc, char **argv)
         case 'r': reindex = 1; compress = 0; break;
         case '@': threads = atoi(optarg); break;
         case 't': test = 1; compress = 0; reindex = 0; break;
+        case 'k': keep = 1; break;
         case 1:
             printf(
 "bgzip (htslib) %s\n"
-"Copyright (C) 2019 Genome Research Ltd.\n", hts_version());
+"Copyright (C) 2023 Genome Research Ltd.\n", hts_version());
             return EXIT_SUCCESS;
+        case  2:  binary = 1; break;
         case 'h': return bgzip_main_usage(stdout, EXIT_SUCCESS);
         case '?': return bgzip_main_usage(stderr, EXIT_FAILURE);
         }
@@ -149,8 +189,7 @@ int main(int argc, char **argv)
         return 1;
     }
     if (compress == 1) {
-        struct stat sbuf;
-        int f_src = fileno(stdin);
+        hFILE* f_src = NULL;
         char out_mode[3] = "w\0";
         char out_mode_exclusive[4] = "wx\0";
 
@@ -163,19 +202,13 @@ int main(int argc, char **argv)
             out_mode_exclusive[2] = compress_level + '0';
         }
 
+        if (!(f_src = hopen(argc > optind ? argv[optind] : "-", "r"))) {
+            fprintf(stderr, "[bgzip] %s: %s\n", strerror(errno), argv[optind]);
+            return 1;
+        }
+
         if ( argc>optind )
         {
-            if ( stat(argv[optind],&sbuf)<0 )
-            {
-                fprintf(stderr, "[bgzip] %s: %s\n", strerror(errno), argv[optind]);
-                return 1;
-            }
-
-            if ((f_src = open(argv[optind], O_RDONLY)) < 0) {
-                fprintf(stderr, "[bgzip] %s: %s\n", strerror(errno), argv[optind]);
-                return 1;
-            }
-
             if (pstdout)
                 fp = bgzf_open("-", out_mode);
             else
@@ -212,7 +245,7 @@ int main(int argc, char **argv)
 
         if ( rebgzip && !index_fname )
         {
-            fprintf(stderr, "[bgzip] Index file name expected when writing to stdout\n");
+            fprintf(stderr, "[bgzip] Index file name expected when writing to stdout.  See -I option.\n");
             return 1;
         }
 
@@ -221,18 +254,103 @@ int main(int argc, char **argv)
             bgzf_mt(fp, threads, 256);
 
         buffer = malloc(WINDOW_SIZE);
-#ifdef _WIN32
-        _setmode(f_src, O_BINARY);
-#endif
+        if (!buffer)
+            return 1;
         if (rebgzip){
             if ( bgzf_index_load(fp, index_fname, NULL) < 0 ) error("Could not load index: %s.gzi\n", argv[optind]);
 
-            while ((c = read(f_src, buffer, WINDOW_SIZE)) > 0)
+            while ((c = hread(f_src, buffer, WINDOW_SIZE)) > 0)
                 if (bgzf_block_write(fp, buffer, c) < 0) error("Could not write %d bytes: Error %d\n", c, fp->errcode);
         }
         else {
-            while ((c = read(f_src, buffer, WINDOW_SIZE)) > 0)
-                if (bgzf_write(fp, buffer, c) < 0) error("Could not write %d bytes: Error %d\n", c, fp->errcode);
+            htsFormat fmt;
+            int textual = 0;
+            if (!binary
+                && hts_detect_format(f_src, &fmt) == 0
+                && fmt.compression == no_compression) {
+                switch(fmt.format) {
+                case text_format:
+                case sam:
+                case vcf:
+                case bed:
+                case fasta_format:
+                case fastq_format:
+                case fai_format:
+                case fqi_format:
+                    textual = 1;
+                    break;
+                default: break; // silence clang warnings
+                }
+            }
+
+            if (binary || !textual) {
+                // Binary data, either detected or explicit
+                while ((c = hread(f_src, buffer, WINDOW_SIZE)) > 0)
+                    if (bgzf_write(fp, buffer, c) < 0)
+                        error("Could not write %d bytes: Error %d\n",
+                              c, fp->errcode);
+            } else {
+                /* Text mode, try a flush after a newline */
+                int in_header = 1, n = 0, long_line = 0;
+                while ((c = hread(f_src, buffer+n, WINDOW_SIZE-n)) > 0) {
+                    int c2 = c+n;
+                    int flush = 0;
+                    if (in_header &&
+                        (long_line || buffer[0] == '@' || buffer[0] == '#')) {
+                        // Scan forward to find the last header line.
+                        int last_start = 0;
+                        n = 0;
+                        while (n < c2) {
+                            if (buffer[n++] != '\n')
+                                continue;
+
+                            last_start = n;
+                            if (n < c2 &&
+                                !(buffer[n] == '@' || buffer[n] == '#')) {
+                                in_header = 0;
+                                break;
+                            }
+                        }
+                        if (!last_start) {
+                            n = c2;
+                            long_line = 1;
+                        } else {
+                            n = last_start;
+                            flush = 1;
+                            long_line = 0;
+                        }
+                    } else {
+                        // Scan backwards to find the last newline.
+                        n += c; // c read plus previous n overflow
+                        while (--n >= 0 && ((char *)buffer)[n] != '\n')
+                            ;
+
+                        if (n >= 0) {
+                            flush = 1;
+                            n++;
+                        } else {
+                            n = c2;
+                        }
+                    }
+
+                    // Pos n is either at the end of the buffer with flush==0,
+                    // or the first byte after a newline and a flush point.
+                    if (bgzf_write(fp, buffer, n) < 0)
+                        error("Could not write %d bytes: Error %d\n",
+                              n, fp->errcode);
+                    if (flush)
+                        if (bgzf_flush_try(fp, 65536) < 0) // force
+                            return -1;
+
+                    memmove(buffer, buffer+n, c2-n);
+                    n = c2-n;
+                }
+
+                // Trailing data.
+                if (bgzf_write(fp, buffer, n) < 0)
+                    error("Could not write %d bytes: Error %d\n",
+                          n, fp->errcode);
+            }
         }
         if ( index )
         {
@@ -241,13 +359,16 @@ int main(int argc, char **argv)
                     error("Could not write index to '%s'\n", index_fname);
             } else {
                 if (bgzf_index_dump(fp, argv[optind], ".gz.gzi") < 0)
-                    error("Could not write index to '%s.gz.gzi'", argv[optind]);
+                    error("Could not write index to '%s.gz.gzi'\n",
+                          argv[optind]);
             }
         }
-        if (bgzf_close(fp) < 0) error("Close failed: Error %d", fp->errcode);
-        if (argc > optind && !pstdout) unlink(argv[optind]);
+        if (bgzf_close(fp) < 0)
+            error("Output close failed: Error %d\n", fp->errcode);
+        if (hclose(f_src) < 0)
+            error("Input close failed\n");
+        if (argc > optind && !pstdout && !keep) unlink(argv[optind]);
         free(buffer);
-        close(f_src);
         return 0;
     }
     else if ( reindex )
@@ -284,26 +405,18 @@ int main(int argc, char **argv)
     }
     else
     {
-        struct stat sbuf;
         int f_dst;
 
         if ( argc>optind )
         {
-            if ( stat(argv[optind],&sbuf)<0 )
-            {
-                fprintf(stderr, "[bgzip] %s: %s\n", strerror(errno), argv[optind]);
-                return 1;
-            }
-            char *name;
-            int len = strlen(argv[optind]);
-            if ( strcmp(argv[optind]+len-3,".gz") && !test)
-            {
-                fprintf(stderr, "[bgzip] %s: unknown suffix -- ignored\n", argv[optind]);
-                return 1;
-            }
             fp = bgzf_open(argv[optind], "r");
             if (fp == NULL) {
-                fprintf(stderr, "[bgzip] Could not open file: %s\n", argv[optind]);
+                fprintf(stderr, "[bgzip] Could not open %s: %s\n", argv[optind], strerror(errno));
+                return 1;
+            }
+            if (bgzf_compression(fp) == no_compression) {
+                fprintf(stderr, "[bgzip] %s: not a compressed file -- ignored\n", argv[optind]);
+                bgzf_close(fp);
                 return 1;
             }
 
@@ -312,8 +425,24 @@ int main(int argc, char **argv)
             }
             else {
                 const int wrflags = O_WRONLY | O_CREAT | O_TRUNC;
+                char *name = argv[optind], *ext;
+                size_t pos;
+                for (pos = strlen(name); pos > 0; --pos)
+                    if (name[pos] == '.' || name[pos] == '/') break;
+                if (pos == 0 || name[pos] != '.') {
+                    fprintf(stderr, "[bgzip] can't remove an extension from %s -- please rename\n", argv[optind]);
+                    bgzf_close(fp);
+                    return 1;
+                }
                 name = strdup(argv[optind]);
-                name[strlen(name) - 3] = '\0';
+                name[pos] = '\0';
+                ext = &name[pos+1];
+                if (! (known_extension(ext) || confirm_filename(&is_forced, name, ext))) {
+                    fprintf(stderr, "[bgzip] unknown extension .%s -- declining to decompress to %s\n", ext, name);
+                    bgzf_close(fp);
+                    free(name);
+                    return 1;
+                }
                 f_dst = open(name, is_forced? wrflags : wrflags|O_EXCL, 0666);
                 if (f_dst < 0 && errno == EEXIST && confirm_overwrite(name))
                     f_dst = open(name, wrflags, 0666);
@@ -335,11 +464,11 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[bgzip] Could not read from stdin: %s\n", strerror(errno));
                 return 1;
             }
-        }
-
-        if (!fp->is_compressed) {
-            fprintf(stderr, "[bgzip] Expected compressed file -- ignored\n");
-            return 1;
+            if (bgzf_compression(fp) == no_compression) {
+                fprintf(stderr, "[bgzip] stdin is not compressed -- ignored\n");
+                bgzf_close(fp);
+                return 1;
+            }
         }
 
         buffer = malloc(WINDOW_SIZE);
@@ -381,7 +510,7 @@ int main(int argc, char **argv)
         }
         free(buffer);
         if (bgzf_close(fp) < 0) error("Close failed: Error %d\n",fp->errcode);
-        if (argc > optind && !pstdout && !test) unlink(argv[optind]);
+        if (argc > optind && !pstdout && !test && !keep) unlink(argv[optind]);
         return 0;
     }
 }

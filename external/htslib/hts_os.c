@@ -1,7 +1,7 @@
 /// @file hts_os.c
 /// Operating System specific tweaks, for compatibility with POSIX.
 /*
-   Copyright (C) 2017 Genome Research Ltd.
+   Copyright (C) 2017, 2019-2020 Genome Research Ltd.
 
     Author: James Bonfield <jkb@sanger.ac.uk>
 
@@ -23,17 +23,33 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
+#include "htslib/hts_defs.h"
 
 // Windows (maybe more) lack a drand48 implementation.
 #ifndef HAVE_DRAND48
 #include "os/rand.c"
 #else
 #include <stdlib.h>
-void hts_srand48(long seed) { srand48(seed); }
+HTSLIB_EXPORT
+void hts_srand48(long seed)
+{
+#ifdef HAVE_SRAND48_DETERMINISTIC
+    srand48_deterministic(seed);
+#else
+    srand48(seed);
+#endif
+}
+
+HTSLIB_EXPORT
 double hts_erand48(unsigned short xseed[3]) { return erand48(xseed); }
+
+HTSLIB_EXPORT
 double hts_drand48(void) { return drand48(); }
-double hts_lrand48(void) { return lrand48(); }
+
+HTSLIB_EXPORT
+long hts_lrand48(void) { return lrand48(); }
 #endif
 
 // // On Windows when using the MSYS or Cygwin terminals, isatty fails

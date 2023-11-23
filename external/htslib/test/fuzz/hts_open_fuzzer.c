@@ -1,6 +1,7 @@
 /*  test/fuzz/hts_open_fuzzer.c -- Fuzz driver for hts_open.
 
     Copyright (C) 2018 Google LLC.
+    Copyright (C) 2019-2020 Genome Research Ltd.
 
     Author: Markus Kusano <kusano@google.com>
 
@@ -30,10 +31,11 @@ DEALINGS IN THE SOFTWARE.  */
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "htslib/hfile.h"
-#include "htslib/hts.h"
-#include "htslib/sam.h"
-#include "htslib/vcf.h"
+
+#include "../../htslib/hfile.h"
+#include "../../htslib/hts.h"
+#include "../../htslib/sam.h"
+#include "../../htslib/vcf.h"
 
 static void hts_close_or_abort(htsFile* file) {
     if (hts_close(file) != 0) {
@@ -145,6 +147,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         default:
             break;
     }
-    hts_close_or_abort(ht_file);
+    hts_close(ht_file);
     return 0;
 }

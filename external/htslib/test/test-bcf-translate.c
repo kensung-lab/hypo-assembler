@@ -1,6 +1,6 @@
 /*  test/test-bcf-translate.c
 
-    Copyright (C) 2017 Genome Research Ltd.
+    Copyright (C) 2017-2018 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -24,8 +24,10 @@
 */
 
 #include <config.h>
+
 #include <stdio.h>
-#include <htslib/vcf.h>
+
+#include "../htslib/vcf.h"
 
 void error(const char *format, ...)
 {
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
     bcf_update_format_int32(hdr1, rec, "FMT2", NULL, 0);
 
     bcf_translate(hdr2, hdr1, rec);
-    if ( bcf_write(fp, hdr2, rec)!=0 ) error("Faild to write to %s\n", fname);
+    if ( bcf_write(fp, hdr2, rec)!=0 ) error("Failed to write to %s\n", fname);
 
     // Clean
     bcf_destroy1(rec);

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2013-2014 Genome Research Ltd.
+Copyright (c) 2013-2020, 2023 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * binary search to find the first range which overlaps any given coordinate.
  */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
 
 #include <stdio.h>
@@ -61,17 +62,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/stat.h>
 #include <math.h>
 
-#include "htslib/bgzf.h"
-#include "htslib/hfile.h"
-#include "hts_internal.h"
-#include "cram/cram.h"
-#include "cram/os.h"
+#include "../htslib/bgzf.h"
+#include "../htslib/hfile.h"
+#include "../hts_internal.h"
+#include "cram.h"
+#include "os.h"
 
 #if 0
 static void dump_index_(cram_index *e, int level) {
     int i, n;
     n = printf("%*s%d / %d .. %d, ", level*4, "", e->refid, e->start, e->end);
-    printf("%*soffset %"PRId64"\n", MAX(0,50-n), "", e->offset);
+    printf("%*soffset %"PRId64" %p %p\n", MAX(0,50-n), "", e->offset, e, e->e_next);
     for (i = 0; i < e->nslice; i++) {
         dump_index_(&e->e[i], level+1);
     }
@@ -84,6 +85,37 @@ static void dump_index(cram_fd *fd) {
     }
 }
 #endif
+
+// Thread a linked list through the nested containment list.
+// This makes navigating it and finding the "next" index entry
+// trivial.
+static cram_index *link_index_(cram_index *e, cram_index *e_last) {
+    int i;
+    if (e_last)
+        e_last->e_next = e;
+
+    // We don't want to link in the top-level cram_index with
+    // offset=0 and start/end = INT_MIN/INT_MAX.
+    if (e->offset)
+        e_last = e;
+
+    for (i = 0; i < e->nslice; i++)
+        e_last = link_index_(&e->e[i], e_last);
+
+    return e_last;
+}
+
+static void link_index(cram_fd *fd) {
+    int i;
+    cram_index *e_last = NULL;
+
+    for (i = 0; i < fd->index_sz; i++) {
+        e_last = link_index_(&fd->index[i], e_last);
+    }
+
+    if (e_last)
+        e_last->e_next = NULL;
+}
 
 static int kget_int32(kstring_t *k, size_t *pos, int32_t *val_p) {
     int sign = 1;
@@ -142,7 +174,8 @@ static int kget_int64(kstring_t *k, size_t *pos, int64_t *val_p) {
  *        -1 for failure
  */
 int cram_index_load(cram_fd *fd, const char *fn, const char *fn_idx) {
-    char *fn2 = NULL;
+
+    char *tfn_idx = NULL;
     char buf[65536];
     ssize_t len;
     kstring_t kstr = {0};
@@ -171,16 +204,24 @@ int cram_index_load(cram_fd *fd, const char *fn, const char *fn_idx) {
 
     idx_stack[idx_stack_ptr] = idx;
 
-    if (!fn_idx) {
-        fn2 = hts_idx_getfn(fn, ".crai");
-        if (!fn2)
-            goto fail;
+    // Support pathX.cram##idx##pathY.crai
+    const char *fn_delim = strstr(fn, HTS_IDX_DELIM);
+    if (fn_delim && !fn_idx)
+        fn_idx = fn_delim + strlen(HTS_IDX_DELIM);
 
-        fn_idx = fn2;
+    if (!fn_idx) {
+        if (hts_idx_check_local(fn, HTS_FMT_CRAI, &tfn_idx) == 0 && hisremote(fn))
+            tfn_idx = hts_idx_getfn(fn, ".crai");
+
+        if (!tfn_idx) {
+            hts_log_error("Could not retrieve index file for '%s'", fn);
+            goto fail;
+        }
+        fn_idx = tfn_idx;
     }
 
     if (!(fp = hopen(fn_idx, "r"))) {
-        perror(fn_idx);
+        hts_log_error("Could not open index file '%s'", fn_idx);
         goto fail;
     }
 
@@ -198,7 +239,7 @@ int cram_index_load(cram_fd *fd, const char *fn, const char *fn_idx) {
 
     // Uncompress if required
     if (kstr.s[0] == 31 && (uc)kstr.s[1] == 139) {
-        size_t l;
+        size_t l = 0;
         char *s = zlib_mem_inflate(kstr.s, kstr.l, &l);
         if (!s)
             goto fail;
@@ -265,7 +306,8 @@ int cram_index_load(cram_fd *fd, const char *fn, const char *fn_idx) {
             idx_stack[(idx_stack_ptr = 0)] = idx;
         }
 
-        while (!(e.start >= idx->start && e.end <= idx->end) || idx->end == 0) {
+        while (!(e.start >= idx->start && e.end <= idx->end) ||
+               (idx->start == 0 && idx->refid == -1)) {
             idx = idx_stack[--idx_stack_ptr];
         }
 
@@ -301,16 +343,19 @@ int cram_index_load(cram_fd *fd, const char *fn, const char *fn_idx) {
 
     free(idx_stack);
     free(kstr.s);
-    free(fn2);
+    free(tfn_idx);
 
-    // dump_index(fd);
+    // Convert NCList to linear linked list
+    link_index(fd);
+
+    //dump_index(fd);
 
     return 0;
 
  fail:
     free(kstr.s);
     free(idx_stack);
-    free(fn2);
+    free(tfn_idx);
     cram_index_free(fd); // Also sets fd->index = NULL
     return -1;
 }
@@ -346,7 +391,7 @@ void cram_index_free(cram_fd *fd) {
  * entries, but we require at least one per reference.)
  *
  * If the index finds multiple slices overlapping this position we
- * return the first one only. Subsequent calls should specifying
+ * return the first one only. Subsequent calls should specify
  * "from" as the last slice we checked to find the next one. Otherwise
  * set "from" to be NULL to find the first one.
  *
@@ -356,10 +401,21 @@ void cram_index_free(cram_fd *fd) {
  * Returns the cram_index pointer on success
  *         NULL on failure
  */
-cram_index *cram_index_query(cram_fd *fd, int refid, int pos,
+cram_index *cram_index_query(cram_fd *fd, int refid, hts_pos_t pos,
                              cram_index *from) {
     int i, j, k;
     cram_index *e;
+
+    if (from) {
+        // Continue from a previous search.
+        // We switch to just scanning the linked list, as the nested
+        // lists are typically short.
+        e = from->e_next;
+        if (e && e->refid == refid && e->start <= pos)
+            return e;
+        else
+            return NULL;
+    }
 
     switch(refid) {
     case HTS_IDX_NONE:
@@ -390,8 +446,7 @@ cram_index *cram_index_query(cram_fd *fd, int refid, int pos,
             return NULL;
     }
 
-    if (!from)
-        from = &fd->index[refid+1];
+    from = &fd->index[refid+1];
 
     // Ref with nothing aligned against it.
     if (!from->e)
@@ -456,7 +511,42 @@ cram_index *cram_index_last(cram_fd *fd, int refid, cram_index *from) {
 
     slice = fd->index[refid+1].nslice - 1;
 
-    return &from->e[slice];
+    // e is the last entry in the nested containment list, but it may
+    // contain further slices within it.
+    cram_index *e = &from->e[slice];
+    while (e->e_next)
+        e = e->e_next;
+
+    return e;
+}
+
+/*
+ * Find the last container overlapping pos 'end', and the file offset of
+ * its end (equivalent to the start offset of the container following it).
+ */
+cram_index *cram_index_query_last(cram_fd *fd, int refid, hts_pos_t end) {
+    cram_index *e = NULL, *prev_e;
+    do {
+        prev_e = e;
+        e = cram_index_query(fd, refid, end, prev_e);
+    } while (e);
+
+    if (!prev_e)
+        return NULL;
+    e = prev_e;
+
+    // Note: offset of e and e->e_next may be the same if we're using a
+    // multi-ref container where a single container generates multiple
+    // index entries.
+    //
+    // We need to keep iterating until offset differs in order to find
+    // the genuine file offset for the end of container.
+    do {
+        prev_e = e;
+        e = e->e_next;
+    } while (e && e->offset == prev_e->offset);
+
+    return prev_e;
 }
 
 /*
@@ -544,7 +634,8 @@ static int cram_index_build_multiref(cram_fd *fd,
                                      off_t cpos,
                                      int32_t landmark,
                                      int sz) {
-    int i, ref = -2, ref_start = 0, ref_end;
+    int i, ref = -2;
+    int64_t ref_start = 0, ref_end;
     char buf[1024];
 
     if (fd->mode != 'w') {
@@ -571,9 +662,10 @@ static int cram_index_build_multiref(cram_fd *fd,
         }
 
         if (ref != -2) {
-            sprintf(buf, "%d\t%d\t%d\t%"PRId64"\t%d\t%d\n",
-                    ref, ref_start, ref_end - ref_start + 1,
-                    (int64_t)cpos, landmark, sz);
+            snprintf(buf, sizeof(buf),
+                     "%d\t%"PRId64"\t%"PRId64"\t%"PRId64"\t%d\t%d\n",
+                     ref, ref_start, ref_end - ref_start + 1,
+                     (int64_t)cpos, landmark, sz);
             if (bgzf_write(fp, buf, strlen(buf)) < 0)
                 return -4;
         }
@@ -584,9 +676,10 @@ static int cram_index_build_multiref(cram_fd *fd,
     }
 
     if (ref != -2) {
-        sprintf(buf, "%d\t%d\t%d\t%"PRId64"\t%d\t%d\n",
-                ref, ref_start, ref_end - ref_start + 1,
-                (int64_t)cpos, landmark, sz);
+        snprintf(buf, sizeof(buf),
+                 "%d\t%"PRId64"\t%"PRId64"\t%"PRId64"\t%d\t%d\n",
+                 ref, ref_start, ref_end - ref_start + 1,
+                 (int64_t)cpos, landmark, sz);
         if (bgzf_write(fp, buf, strlen(buf)) < 0)
             return -4;
     }
@@ -616,9 +709,10 @@ int cram_index_slice(cram_fd *fd,
     if (s->hdr->ref_seq_id == -2) {
         ret = cram_index_build_multiref(fd, c, s, fp, cpos, spos, sz);
     } else {
-        sprintf(buf, "%d\t%d\t%d\t%"PRId64"\t%d\t%d\n",
-                s->hdr->ref_seq_id, s->hdr->ref_seq_start,
-                s->hdr->ref_seq_span, (int64_t)cpos, (int)spos, (int)sz);
+        snprintf(buf, sizeof(buf),
+                 "%d\t%"PRId64"\t%"PRId64"\t%"PRId64"\t%d\t%d\n",
+                 s->hdr->ref_seq_id, s->hdr->ref_seq_start,
+                 s->hdr->ref_seq_span, (int64_t)cpos, (int)spos, (int)sz);
         ret = (bgzf_write(fp, buf, strlen(buf)) >= 0)? 0 : -4;
     }
 
@@ -684,7 +778,7 @@ int cram_index_build(cram_fd *fd, const char *fn_base, const char *fn_idx) {
     off_t cpos, hpos;
     BGZF *fp;
     kstring_t fn_idx_str = {0};
-    int32_t last_ref = -9, last_start = -9;
+    int64_t last_ref = -9, last_start = -9;
 
     // Useful for cram_index_build_multiref
     cram_set_option(fd, CRAM_OPT_REQUIRED_FIELDS, SAM_RNAME | SAM_POS | SAM_CIGAR);

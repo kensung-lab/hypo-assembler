@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # test-bcf-sr.pl -- Test bcf synced reader's allele pairing
 #
-#     Copyright (C) 2017 Genome Research Ltd.
+#     Copyright (C) 2017-2018, 2020, 2023 Genome Research Ltd.
 #
 #     Author: petr.danecek@sanger
 #
@@ -39,6 +39,12 @@ exit;
 
 #--------------------------------
 
+sub cygpath {
+    my ($path) = @_;
+    $path = `cygpath -m $path`;
+    $path =~ s/\r?\n//;
+    return $path
+}
 sub error
 {
     my (@msg) = @_;
@@ -51,7 +57,7 @@ sub error
         "   -v, --verbose           \n",
         "   -h, -?, --help          This help message\n",
         "\n";
-    exit -1;
+    exit 1;
 }
 sub parse_params
 {
@@ -65,6 +71,9 @@ sub parse_params
         error("Unknown parameter \"$arg\". Run -h for help.\n");
     }
     $$opts{tmp} = exists($$opts{keep_files}) ? $$opts{keep_files} : tempdir(CLEANUP=>1);
+    if ($^O =~ /^msys/) {
+        $$opts{tmp} = cygpath($$opts{tmp});
+    }
     if ( $$opts{keep_files} ) { cmd("mkdir -p $$opts{keep_files}"); }
     if ( !exists($$opts{seed}) )
     {
@@ -562,5 +571,3 @@ sub pairing_score
     }
     return (1<<(28+$min)) + $cnt;
 }
-
-

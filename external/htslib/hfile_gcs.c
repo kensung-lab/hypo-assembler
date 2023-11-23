@@ -1,6 +1,6 @@
 /*  hfile_gcs.c -- Google Cloud Storage backend for low-level file streams.
 
-    Copyright (C) 2016 Genome Research Ltd.
+    Copyright (C) 2016, 2021 Genome Research Ltd.
 
     Author: John Marshall <jm18@sanger.ac.uk>
 
@@ -22,6 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.  */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
 
 #include <stdarg.h>
@@ -41,10 +42,11 @@ static hFILE *
 gcs_rewrite(const char *gsurl, const char *mode, int mode_has_colon,
             va_list *argsp)
 {
-    const char *bucket, *path, *access_token;
+    const char *bucket, *path, *access_token, *requester_pays_project;
     kstring_t mode_colon = { 0, 0, NULL };
     kstring_t url = { 0, 0, NULL };
     kstring_t auth_hdr = { 0, 0, NULL };
+    kstring_t requester_pays_hdr = { 0, 0, NULL };
     hFILE *fp = NULL;
 
     // GCS URL format is gs[+SCHEME]://BUCKET/PATH
@@ -80,15 +82,35 @@ gcs_rewrite(const char *gsurl, const char *mode, int mode_has_colon,
         kputs(access_token, &auth_hdr);
     }
 
-    if (argsp || auth_hdr.l > 0 || mode_has_colon) {
+    requester_pays_project = getenv("GCS_REQUESTER_PAYS_PROJECT");
+
+    if (requester_pays_project) {
+        kputs("X-Goog-User-Project: ", &requester_pays_hdr);
+        kputs(requester_pays_project, &requester_pays_hdr);
+    }
+
+    if (argsp || mode_has_colon || auth_hdr.l > 0 || requester_pays_hdr.l > 0) {
         if (! mode_has_colon) {
             kputs(mode, &mode_colon);
             kputc(':', &mode_colon);
             mode = mode_colon.s;
         }
 
-        fp = hopen(url.s, mode, "va_list", argsp,
-                   "httphdr", (auth_hdr.l > 0)? auth_hdr.s : NULL, NULL);
+        if (auth_hdr.l > 0 && requester_pays_hdr.l > 0) {
+            fp = hopen(
+                url.s, mode, "va_list", argsp,
+                   "httphdr:l",
+                   auth_hdr.s,
+                   requester_pays_hdr.s,
+                   NULL,
+                   NULL
+            );
+
+        }
+        else {
+            fp = hopen(url.s, mode, "va_list", argsp,
+                       "httphdr", (auth_hdr.l > 0)? auth_hdr.s : NULL, NULL);
+        }
     }
     else
         fp = hopen(url.s, mode);
@@ -96,6 +118,7 @@ gcs_rewrite(const char *gsurl, const char *mode, int mode_has_colon,
     free(mode_colon.s);
     free(url.s);
     free(auth_hdr.s);
+    free(requester_pays_hdr.s);
     return fp;
 }
 
@@ -124,7 +147,7 @@ int PLUGIN_GLOBAL(hfile_plugin_init,_gcs)(struct hFILE_plugin *self)
 
 #ifdef ENABLE_PLUGINS
     // Embed version string for examination via strings(1) or what(1)
-    static const char id[] = "@(#)hfile_gcs plugin (htslib)\t" HTS_VERSION;
+    static const char id[] = "@(#)hfile_gcs plugin (htslib)\t" HTS_VERSION_TEXT;
     if (hts_verbose >= 9)
         fprintf(stderr, "[M::hfile_gcs.init] version %s\n", strchr(id, '\t')+1);
 #endif

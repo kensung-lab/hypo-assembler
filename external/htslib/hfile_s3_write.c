@@ -1,5 +1,5 @@
 /*
-    hfile_s3_write.c - Code to handle mulitpart uploading to S3.
+    hfile_s3_write.c - Code to handle multipart uploading to S3.
 
     Copyright (C) 2019 Genome Research Ltd.
 
@@ -40,7 +40,7 @@ Initiate the upload and get an upload ID.  This ID is used in all other steps.
 --------------
 
 Upload a part of the data.  5Mb minimum part size (except for the last part).
-Each part is numbered and a succesful upload returns an Etag header value that
+Each part is numbered and a successful upload returns an Etag header value that
 needs to used for the completion step.
 
 Step repeated till all data is uploaded.
@@ -63,6 +63,7 @@ uploads and abandon the upload process.
 Andrew Whitwham, January 2019
 */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
 
 #include <stdarg.h>
@@ -87,6 +88,10 @@ Andrew Whitwham, January 2019
 #define MINIMUM_S3_WRITE_SIZE 5242880
 #define S3_MOVED_PERMANENTLY 301
 #define S3_BAD_REQUEST 400
+
+// Lets the part memory size grow to about 1Gb giving a 2.5Tb max file size.
+// Max. parts allowed by AWS is 10000, so use ceil(10000.0/9.0)
+#define EXPAND_ON 1112
 
 static struct {
     kstring_t useragent;
@@ -127,6 +132,8 @@ typedef struct {
     int aborted;
     size_t index;
     long verbose;
+    int part_size;
+    int expand;
 } hFILE_s3_write;
 
 
@@ -164,13 +171,12 @@ static int get_entry(char *in, char *start_tag, char *end_tag, kstring_t *out) {
     }
 
     start = strstr(in, start_tag);
+    if (!start) return EOF;
 
-    if (start) {
-        start += strlen(start_tag);
-        end = strstr(start, end_tag);
-    }
+    start += strlen(start_tag);
+    end = strstr(start, end_tag);
 
-    if (!start || !end) return EOF;
+    if (!end) return EOF;
 
     return kputsn(start, end - start, out);
 }
@@ -194,7 +200,7 @@ static void cleanup(hFILE_s3_write *fp) {
 }
 
 
-struct curl_slist *set_html_headers(hFILE_s3_write *fp, kstring_t *auth, kstring_t *date, kstring_t *content, kstring_t *token) {
+static struct curl_slist *set_html_headers(hFILE_s3_write *fp, kstring_t *auth, kstring_t *date, kstring_t *content, kstring_t *token) {
     struct curl_slist *headers = NULL;
 
     headers = curl_slist_append(headers, "Content-Type:"); // get rid of this
@@ -315,7 +321,7 @@ static int complete_upload(hFILE_s3_write *fp, kstring_t *resp) {
     curl_easy_reset(fp->curl);
     curl_easy_setopt(fp->curl, CURLOPT_POST, 1L);
     curl_easy_setopt(fp->curl, CURLOPT_POSTFIELDS, fp->completion_message.s);
-    curl_easy_setopt(fp->curl, CURLOPT_POSTFIELDSIZE, fp->completion_message.l);
+    curl_easy_setopt(fp->curl, CURLOPT_POSTFIELDSIZE, (long) fp->completion_message.l);
     curl_easy_setopt(fp->curl, CURLOPT_WRITEFUNCTION, response_callback);
     curl_easy_setopt(fp->curl, CURLOPT_WRITEDATA, (void *)resp);
     curl_easy_setopt(fp->curl, CURLOPT_URL, url.s);
@@ -435,7 +441,7 @@ static ssize_t s3_write(hFILE *fpv, const void *bufferv, size_t nbytes) {
         return -1;
     }
 
-    if (fp->buffer.l > MINIMUM_S3_WRITE_SIZE) {
+    if (fp->buffer.l > fp->part_size) {
         // time to write out our data
         kstring_t response = {0, 0, NULL};
         int ret;
@@ -471,6 +477,10 @@ static ssize_t s3_write(hFILE *fpv, const void *bufferv, size_t nbytes) {
 
         fp->part_no++;
         fp->buffer.l = 0;
+
+        if (fp->expand && (fp->part_no % EXPAND_ON == 0)) {
+            fp->part_size *= 2;
+        }
     }
 
     return nbytes;
@@ -581,10 +591,10 @@ static int initialise_upload(hFILE_s3_write *fp, kstring_t *head, kstring_t *res
     int ret = -1;
     struct curl_slist *headers = NULL;
     char http_request[] = "POST";
-    char delimeter = '?';
+    char delimiter = '?';
 
     if (user_query) {
-        delimeter = '&';
+        delimiter = '&';
     }
 
     if (fp->au->callback(fp->au->callback_data,  http_request, NULL, "uploads=",
@@ -592,7 +602,7 @@ static int initialise_upload(hFILE_s3_write *fp, kstring_t *head, kstring_t *res
         goto out;
     }
 
-    if (ksprintf(&url, "%s%cuploads", fp->url.s, delimeter) < 0) {
+    if (ksprintf(&url, "%s%cuploads", fp->url.s, delimiter) < 0) {
         goto out;
     }
 
@@ -655,6 +665,7 @@ static hFILE *s3_write_open(const char *url, s3_authorisation *auth) {
     kstring_t header   = {0, 0, NULL};
     int ret, has_user_query = 0;
     char *query_start;
+    const char *env;
 
 
     if (!auth || !auth->callback || !auth->callback_data) {
@@ -682,6 +693,18 @@ static hFILE *s3_write_open(const char *url, s3_authorisation *auth) {
     ksinit(&fp->url);
     ksinit(&fp->completion_message);
     fp->aborted = 0;
+
+    fp->part_size = MINIMUM_S3_WRITE_SIZE;
+    fp->expand = 1;
+
+    if ((env = getenv("HTS_S3_PART_SIZE")) != NULL) {
+        int part_size = atoi(env) * 1024 * 1024;
+
+        if (part_size > fp->part_size)
+            fp->part_size = part_size;
+
+        fp->expand = 0;
+    }
 
     if (hts_verbose >= 8) {
         fp->verbose = 1L;
@@ -818,7 +841,8 @@ int PLUGIN_GLOBAL(hfile_plugin_init,_s3_write)(struct hFILE_plugin *self) {
 
 #ifdef ENABLE_PLUGINS
     // Embed version string for examination via strings(1) or what(1)
-    static const char id[] = "@(#)hfile_s3_write plugin (htslib)\t" HTS_VERSION;
+    static const char id[] =
+        "@(#)hfile_s3_write plugin (htslib)\t" HTS_VERSION_TEXT;
     const char *version = strchr(id, '\t') + 1;
 
     if (hts_verbose >= 9)

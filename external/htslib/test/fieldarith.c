@@ -1,6 +1,6 @@
 /*  test/fieldarith.c -- CIGAR field arithmetic test suite.
 
-    Copyright (C) 2013 Genome Research Ltd.
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
     Author: John Marshall <jm18@sanger.ac.uk>
 
@@ -26,7 +26,7 @@ DEALINGS IN THE SOFTWARE.  */
 
 #include <stdio.h>
 
-#include "htslib/sam.h"
+#include "../htslib/sam.h"
 
 int ntests = 0;
 int nfailures = 0;

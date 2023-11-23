@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2005-2006, 2008-2009, 2013 Genome Research Ltd.
+Copyright (c) 2005-2006, 2008-2009, 2013, 2015, 2017-2019 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
 
 #include <stdio.h>
@@ -40,9 +41,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unistd.h>
 #include <stdarg.h>
 
-#include "htslib/hts_log.h"
-#include "cram/os.h"
-#include "cram/mFILE.h"
+#include "../htslib/hts_log.h"
+#include "os.h"
+#include "mFILE.h"
 
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
@@ -257,7 +258,7 @@ mFILE *mfcreate_from(const char *path, const char *mode_str, FILE *fp) {
 
 /*
  * Converts a FILE * to an mFILE *.
- * Use this for wrapper functions to turn external prototypes requring
+ * Use this for wrapper functions to turn external prototypes requiring
  * FILE * as an argument into internal code using mFILE *.
  */
 mFILE *mfreopen(const char *path, const char *mode_str, FILE *fp) {
