@@ -210,7 +210,7 @@ const char *hts_plugin_path(void) {
     }
 
     static char s_path[1024];
-    snprintf(s_path, sizeof(s_path), "%s", ks.s ? ks.s : "");
+    sprintf(s_path, "%.1023s", ks.s ? ks.s : "");
     free(ks.s);
 
     return s_path;

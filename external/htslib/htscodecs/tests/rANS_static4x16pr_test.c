@@ -31,7 +31,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "config.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -49,6 +48,9 @@
 // Also works well for 32-way SIMD
 #  define BLK_SIZE 0x103810
 #endif
+
+// Room to allow for expanded BLK_SIZE on worst case compression.
+#define BLK_SIZE2 ((105LL*BLK_SIZE)/100)
 
 unsigned char *in_buf;
 
@@ -84,7 +86,8 @@ int main(int argc, char **argv) {
     FILE *infp = stdin, *outfp = stdout;
     struct timeval tv1, tv2, tv3, tv4;
     size_t bytes = 0, raw = 0;
-    uint32_t blk_size = BLK_SIZE;
+
+    in_buf = malloc(BLK_SIZE2+257*257*3);
 
 #ifdef _WIN32
         _setmode(_fileno(stdin),  _O_BINARY);
@@ -97,7 +100,7 @@ int main(int argc, char **argv) {
     extern void rans_disable_avx512(void);
     extern void rans_disable_avx2(void);
 
-    while ((opt = getopt(argc, argv, "o:dtrc:b:")) != -1) {
+    while ((opt = getopt(argc, argv, "o:dtrc:")) != -1) {
         switch (opt) {
         case 'o': {
             char *optend;
@@ -123,16 +126,8 @@ int main(int argc, char **argv) {
         case 'r':
             raw = 1;
             break;
-
-        case 'b':
-            blk_size = atoi(optarg);
-            break;
         }
     }
-
-    // Room to allow for expanded BLK_SIZE on worst case compression.
-    uint32_t blk_size2 = (105LL*blk_size)/100;
-    in_buf = malloc(blk_size2+257*257*3);
 
     if (optind < argc) {
         if (!(infp = fopen(argv[optind], "rb"))) {
@@ -162,6 +157,7 @@ int main(int argc, char **argv) {
         blocks *b = NULL, *bc = NULL, *bu = NULL;
         int nb = 0, i;
 
+        uint32_t blk_size = BLK_SIZE;
         if (raw) {
             b = malloc(sizeof(*b));
             bu = malloc(sizeof(*bu));
@@ -291,7 +287,7 @@ int main(int argc, char **argv) {
 
                 if (4 != fread(&in_size, 1, 4, infp))
                     break;
-                if (in_size > blk_size2)
+                if (in_size > BLK_SIZE)
                     exit(1);
 
                 if (in_size != fread(in_buf, 1, in_size, infp)) {
@@ -313,7 +309,7 @@ int main(int argc, char **argv) {
                 uint32_t in_size, out_size;
                 unsigned char *out;
 
-                in_size = fread(in_buf, 1, blk_size, infp);
+                in_size = fread(in_buf, 1, BLK_SIZE, infp);
                 if (in_size <= 0)
                     break;
 

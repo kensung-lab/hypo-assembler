@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 #
 #    Copyright (C) 2013-2018 Genome Research Ltd.
 #
@@ -26,7 +26,6 @@
 # Optionally can skip header or ignore specific types of diff.
 
 use strict;
-use warnings;
 use Getopt::Long;
 
 my %opts;

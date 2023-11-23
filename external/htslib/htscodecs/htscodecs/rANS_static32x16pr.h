@@ -146,7 +146,7 @@ unsigned char *rans_uncompress_O1_32x16_avx512(unsigned char *in,
 
 //----------------------------------------------------------------------
 // Arm Neon implementation
-#if defined(__ARM_NEON) && defined(__aarch64__)
+#ifdef __ARM_NEON
 unsigned char *rans_compress_O0_32x16_neon(unsigned char *in,
                                            unsigned int in_size,
                                            unsigned char *out,

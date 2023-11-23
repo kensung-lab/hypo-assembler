@@ -1,6 +1,6 @@
 /*  synced_bcf_reader.c -- stream through multiple VCF files.
 
-    Copyright (C) 2012-2023 Genome Research Ltd.
+    Copyright (C) 2012-2021 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -76,7 +76,6 @@ static bcf_sr_regions_t *_regions_init_string(const char *str);
 static int _regions_match_alleles(bcf_sr_regions_t *reg, int als_idx, bcf1_t *rec);
 static void _regions_sort_and_merge(bcf_sr_regions_t *reg);
 static int _bcf_sr_regions_overlap(bcf_sr_regions_t *reg, const char *seq, hts_pos_t start, hts_pos_t end, int missed_reg_handler);
-static void bcf_sr_seek_start(bcf_srs_t *readers);
 
 char *bcf_sr_strerror(int errnum)
 {
@@ -188,10 +187,8 @@ int bcf_sr_set_regions(bcf_srs_t *readers, const char *regions, int is_file)
 {
     if ( readers->nreaders || readers->regions )
     {
-        if ( readers->regions ) bcf_sr_regions_destroy(readers->regions);
-        readers->regions = bcf_sr_regions_init(regions,is_file,0,1,-2);
-        bcf_sr_seek_start(readers);
-        return 0;
+        hts_log_error("Must call bcf_sr_set_regions() before bcf_sr_add_reader()");
+        return -1;
     }
 
     readers->regions = bcf_sr_regions_init(regions,is_file,0,1,-2);
@@ -679,6 +676,7 @@ static int _reader_fill_buffer(bcf_srs_t *files, bcf_sr_t *reader)
                 hts_log_error("This should never happen, just to keep clang compiler happy: %d",BCF_SR_AUX(files)->targets_overlap);
                 exit(1);
             }
+
             if ( beg <= files->regions->prev_end || end < files->regions->start || beg > files->regions->end ) continue;
         }
 
@@ -845,11 +843,7 @@ static void bcf_sr_seek_start(bcf_srs_t *readers)
     for (i=0; i<reg->nseqs; i++)
         reg->regs[i].creg = -1;
     reg->iseq = 0;
-    reg->start = -1;
-    reg->end   = -1;
     reg->prev_seq = -1;
-    reg->prev_start = -1;
-    reg->prev_end   = -1;
 }
 
 
@@ -1032,9 +1026,6 @@ void _regions_sort_and_merge(bcf_sr_regions_t *reg)
 }
 
 // File name or a list of genomic locations. If file name, NULL is returned.
-// Recognises regions in the form chr, chr:pos, chr:beg-end, chr:beg-, {weird-chr-name}:pos.
-// Cannot use hts_parse_region() as that requires the header and if header is not present,
-// wouldn't learn the chromosome name.
 static bcf_sr_regions_t *_regions_init_string(const char *str)
 {
     bcf_sr_regions_t *reg = (bcf_sr_regions_t *) calloc(1, sizeof(bcf_sr_regions_t));
@@ -1046,23 +1037,9 @@ static bcf_sr_regions_t *_regions_init_string(const char *str)
     hts_pos_t from, to;
     while ( 1 )
     {
+        while ( *ep && *ep!=',' && *ep!=':' ) ep++;
         tmp.l = 0;
-        if ( *ep=='{' )
-        {
-            while ( *ep && *ep!='}' ) ep++;
-            if ( !*ep )
-            {
-                hts_log_error("Could not parse the region, mismatching braces in: \"%s\"", str);
-                goto exit_nicely;
-            }
-            ep++;
-            kputsn(sp+1,ep-sp-2,&tmp);
-        }
-        else
-        {
-            while ( *ep && *ep!=',' && *ep!=':' ) ep++;
-            kputsn(sp,ep-sp,&tmp);
-        }
+        kputsn(sp,ep-sp,&tmp);
         if ( *ep==':' )
         {
             sp = ep+1;
@@ -1070,7 +1047,7 @@ static bcf_sr_regions_t *_regions_init_string(const char *str)
             if ( sp==ep )
             {
                 hts_log_error("Could not parse the region(s): %s", str);
-                goto exit_nicely;
+                free(reg); free(tmp.s); return NULL;
             }
             if ( !*ep || *ep==',' )
             {
@@ -1081,7 +1058,7 @@ static bcf_sr_regions_t *_regions_init_string(const char *str)
             if ( *ep!='-' )
             {
                 hts_log_error("Could not parse the region(s): %s", str);
-                goto exit_nicely;
+                free(reg); free(tmp.s); return NULL;
             }
             ep++;
             sp = ep;
@@ -1089,32 +1066,22 @@ static bcf_sr_regions_t *_regions_init_string(const char *str)
             if ( *ep && *ep!=',' )
             {
                 hts_log_error("Could not parse the region(s): %s", str);
-                goto exit_nicely;
+                free(reg); free(tmp.s); return NULL;
             }
             if ( sp==ep ) to = MAX_CSI_COOR-1;
             _regions_add(reg, tmp.s, from, to);
             if ( !*ep ) break;
             sp = ep;
         }
-        else if ( !*ep || *ep==',' )
+        else
         {
             if ( tmp.l ) _regions_add(reg, tmp.s, -1, -1);
             if ( !*ep ) break;
             sp = ++ep;
         }
-        else
-        {
-            hts_log_error("Could not parse the region(s): %s", str);
-            goto exit_nicely;
-        }
     }
     free(tmp.s);
     return reg;
-
-exit_nicely:
-    bcf_sr_regions_destroy(reg);
-    free(tmp.s);
-    return NULL;
 }
 
 // ichr,ifrom,ito are 0-based;
