@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2010 Genome Research Ltd.
+Copyright (c) 2010, 2013, 2018-2019 Genome Research Ltd.
 Author: Andrew Whitwham <aw7@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -36,19 +36,20 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
    Andrew Whitwham, September 2010.
 */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
 
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "cram/string_alloc.h"
+#include "string_alloc.h"
 
 #define MIN_STR_SIZE 1024
 
 
 /* creates the string pool. max_length is the initial size
-   a single string can be.  Tha max_length can grow as
+   a single string can be.  The max_length can grow as
    needed */
 
 string_alloc_t *string_pool_create(size_t max_length) {

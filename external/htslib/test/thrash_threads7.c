@@ -1,6 +1,6 @@
 /* The MIT/Expat License
 
-Copyright (C) 2017 Genome Research Ltd.
+Copyright (C) 2017-2018 Genome Research Ltd.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -36,7 +36,8 @@ DEALINGS IN THE SOFTWARE.
 #include <unistd.h>
 #include <sys/time.h>
 #include <errno.h>
-#include "htslib/thread_pool.h"
+
+#include "../htslib/thread_pool.h"
 
 
 void *job(void *v) {

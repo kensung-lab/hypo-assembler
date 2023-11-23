@@ -1,6 +1,7 @@
 /* The MIT License
 
    Copyright (C) 2011 by Attractive Chaos <attractor@live.co.uk>
+   Copyright (C) 2013-2014, 2016, 2018-2020, 2022 Genome Research Ltd.
 
    Permission is hereby granted, free of charge, to any person obtaining
    a copy of this software and associated documentation files (the
@@ -32,22 +33,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <limits.h>
+#include <errno.h>
 #include <sys/types.h>
 
-#ifndef kroundup32
-#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#endif
-
-#ifndef kroundup_size_t
-#define kroundup_size_t(x) (--(x),                                       \
-                            (x)|=(x)>>(sizeof(size_t)/8), /*  0 or  1 */ \
-                            (x)|=(x)>>(sizeof(size_t)/4), /*  1 or  2 */ \
-                            (x)|=(x)>>(sizeof(size_t)/2), /*  2 or  4 */ \
-                            (x)|=(x)>>(sizeof(size_t)),   /*  4 or  8 */ \
-                            (x)|=(x)>>(sizeof(size_t)*2), /*  8 or 16 */ \
-                            (x)|=(x)>>(sizeof(size_t)*4), /* 16 or 32 */ \
-                            ++(x))
-#endif
+#include "hts_defs.h"
+#include "kroundup.h"
 
 #if defined __GNUC__ && (__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4))
 #ifdef __MINGW_PRINTF_FORMAT
@@ -63,6 +53,13 @@
 #if defined __GNUC__ && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4))
 #define HAVE___BUILTIN_CLZ 1
 #endif
+#endif
+
+// Ensure ssize_t exists within this header. All #includes must precede this,
+// and ssize_t must be undefined again at the end of this header.
+#if defined _MSC_VER && defined _INTPTR_T_DEFINED && !defined _SSIZE_T_DEFINED && !defined ssize_t
+#define HTSLIB_SSIZE_T
+#define ssize_t intptr_t
 #endif
 
 /* kstring_t is a simple non-opaque type whose fields are likely to be
@@ -81,7 +78,7 @@ typedef struct kstring_t {
 } kstring_t;
 #endif
 
-typedef struct {
+typedef struct ks_tokaux_t {
 	uint64_t tab[4];
 	int sep, finished;
 	const char *p; // end of the current token
@@ -91,28 +88,49 @@ typedef struct {
 extern "C" {
 #endif
 
+    HTSLIB_EXPORT
 	int kvsprintf(kstring_t *s, const char *fmt, va_list ap) KS_ATTR_PRINTF(2,0);
+
+    HTSLIB_EXPORT
 	int ksprintf(kstring_t *s, const char *fmt, ...) KS_ATTR_PRINTF(2,3);
+
+    HTSLIB_EXPORT
     int kputd(double d, kstring_t *s); // custom %g only handler
+
+    HTSLIB_EXPORT
 	int ksplit_core(char *s, int delimiter, int *_max, int **_offsets);
+
+    HTSLIB_EXPORT
 	char *kstrstr(const char *str, const char *pat, int **_prep);
+
+    HTSLIB_EXPORT
 	char *kstrnstr(const char *str, const char *pat, int n, int **_prep);
+
+    HTSLIB_EXPORT
 	void *kmemmem(const void *_str, int n, const void *_pat, int m, int **_prep);
 
 	/* kstrtok() is similar to strtok_r() except that str is not
 	 * modified and both str and sep can be NULL. For efficiency, it is
 	 * actually recommended to set both to NULL in the subsequent calls
 	 * if sep is not changed. */
+    HTSLIB_EXPORT
 	char *kstrtok(const char *str, const char *sep, ks_tokaux_t *aux);
 
-	/* kgetline() uses the supplied fgets()-like function to read a "\n"-
-	 * or "\r\n"-terminated line from fp.  The line read is appended to the
-	 * kstring without its terminator and 0 is returned; EOF is returned at
-	 * EOF or on error (determined by querying fp, as per fgets()). */
-	typedef char *kgets_func(char *, int, void *);
-	int kgetline(kstring_t *s, kgets_func *fgets, void *fp);
-	typedef ssize_t kgets_func2(char *, int, void *);
-	int kgetline2(kstring_t *s, kgets_func2 *fgets, void *fp);
+    /* kgetline() uses the supplied fgets()-like function to read a "\n"-
+     * or "\r\n"-terminated line from fp.  The line read is appended to the
+     * kstring without its terminator and 0 is returned; EOF is returned at
+     * EOF or on error (determined by querying fp, as per fgets()). */
+    typedef char *kgets_func(char *, int, void *);
+    HTSLIB_EXPORT
+    int kgetline(kstring_t *s, kgets_func *fgets_fn, void *fp);
+
+    /* kgetline2() uses the supplied hgetln()-like function to read a "\n"-
+     * or "\r\n"-terminated line from fp.  The line read is appended to the
+     * ksring without its terminator and 0 is returned; EOF is returned at
+     * EOF or on error (determined by querying fp, as per fgets()). */
+    typedef ssize_t kgets_func2(char *, size_t, void *);
+    HTSLIB_EXPORT
+    int kgetline2(kstring_t *s, kgets_func2 *fgets_fn, void *fp);
 
 #ifdef __cplusplus
 }
@@ -137,13 +155,13 @@ static inline void ks_initialize(kstring_t *s)
 static inline int ks_resize(kstring_t *s, size_t size)
 {
 	if (s->m < size) {
-		char *tmp;
-		kroundup_size_t(size);
-		tmp = (char*)realloc(s->s, size);
-		if (!tmp && size)
-		    return -1;
-		s->s = tmp;
-		s->m = size;
+	    char *tmp;
+	    size = (size > (SIZE_MAX>>2)) ? size : size + (size >> 1);
+	    tmp = (char*)realloc(s->s, size);
+	    if (!tmp)
+	        return -1;
+	    s->s = tmp;
+	    s->m = size;
 	}
 	return 0;
 }
@@ -226,6 +244,7 @@ static inline int kputsn(const char *p, size_t l, kstring_t *s)
 
 static inline int kputs(const char *p, kstring_t *s)
 {
+	if (!p) { errno = EFAULT; return -1; }
 	return kputsn(p, strlen(p), s);
 }
 
@@ -354,11 +373,11 @@ static inline int kputw(int c, kstring_t *s)
     return kputuw(x, s);
 }
 
-static inline int kputl(long c, kstring_t *s)
+static inline int kputll(long long c, kstring_t *s)
 {
 	char buf[32];
 	int i, l = 0;
-	unsigned long x = c;
+	unsigned long long x = c;
 	if (c < 0) x = -x;
 	do { buf[l++] = x%10 + '0'; x /= 10; } while (x > 0);
 	if (c < 0) buf[l++] = '-';
@@ -369,9 +388,13 @@ static inline int kputl(long c, kstring_t *s)
 	return 0;
 }
 
+static inline int kputl(long c, kstring_t *s) {
+    return kputll(c, s);
+}
+
 /*
  * Returns 's' split by delimiter, with *n being the number of components;
- *         NULL on failue.
+ *         NULL on failure.
  */
 static inline int *ksplit(kstring_t *s, int delimiter, int *n)
 {
@@ -379,5 +402,10 @@ static inline int *ksplit(kstring_t *s, int delimiter, int *n)
 	*n = ksplit_core(s->s, delimiter, &max, &offsets);
 	return offsets;
 }
+
+#ifdef HTSLIB_SSIZE_T
+#undef HTSLIB_SSIZE_T
+#undef ssize_t
+#endif
 
 #endif

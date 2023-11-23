@@ -32,7 +32,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /*
-Copyright (c) 2008, 2009, 2013, 2014 Genome Research Ltd.
+Copyright (c) 2008, 2009, 2013, 2014-2015, 2018-2020 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#define HTS_BUILDING_LIBRARY // Enables HTSLIB_EXPORT, see htslib/hts_defs.h
 #include <config.h>
 
 #include <stdlib.h>
@@ -71,15 +72,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "cram/os.h"
+
+#include "os.h"
 #ifndef PATH_MAX
 #  define PATH_MAX 1024
 #endif
 
-#include "cram/open_trace_file.h"
-#include "cram/misc.h"
-#include "htslib/hfile.h"
-#include "htslib/hts_log.h"
+#include "open_trace_file.h"
+#include "misc.h"
+#include "../htslib/hfile.h"
+#include "../htslib/hts_log.h"
+#include "../htslib/hts.h"
 
 /*
  * Returns whether the path refers to a regular file.
@@ -106,11 +109,7 @@ char *tokenise_search_path(const char *searchpath) {
     char *newsearch;
     unsigned int i, j;
     size_t len;
-#if defined(_WIN32) || defined(__MSYS__)
-    char path_sep = ';';
-#else
-    char path_sep = ':';
-#endif
+    char path_sep = HTS_PATH_SEPARATOR_CHAR;
 
     if (!searchpath)
         searchpath="";

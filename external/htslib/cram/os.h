@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /*
-Copyright (c) 2004, 2006, 2009-2011, 2013, 2017 Genome Research Ltd.
+Copyright (c) 2004, 2006, 2009-2011, 2013, 2017-2018 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -77,7 +77,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <limits.h>
 #include <stdint.h>
-#include "htslib/hts_endian.h"
+
+#include "../htslib/hts_endian.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2010-2013 Genome Research Ltd.
+Copyright (c) 2010-2013, 2018, 2020 Genome Research Ltd.
 Author: James Bonfield <jkb@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define bam_reg2bin(beg,end) hts_reg2bin((beg),(end),14,5)
 
-#include "htslib/sam.h"
+#include "../htslib/sam.h"
 
 enum cigar_op {
     BAM_CMATCH_=BAM_CMATCH,
@@ -71,28 +71,5 @@ enum cigar_op {
 };
 
 typedef bam1_t bam_seq_t;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int bam_construct_seq(bam_seq_t **bp, size_t extra_len,
-                      const char *qname, size_t qname_len,
-                      int flag,
-                      int rname,      // Ref ID
-                      int pos,
-                      int end,        // aligned start/end coords
-                      int mapq,
-                      uint32_t ncigar, const uint32_t *cigar,
-                      int mrnm,       // Mate Ref ID
-                      int mpos,
-                      int isize,
-                      int len,
-                      const char *seq,
-                      const char *qual);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* CRAM_SAMTOOLS_H */

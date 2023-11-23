@@ -1,6 +1,6 @@
 /*  test/test-vcf-sweep.c -- VCF test harness.
 
-    Copyright (C) 2013 Genome Research Ltd.
+    Copyright (C) 2013-2014 Genome Research Ltd.
 
     Author: Petr Danecek <pd3@sanger.ac.uk>
 
@@ -25,7 +25,8 @@ DEALINGS IN THE SOFTWARE.  */
 #include <config.h>
 
 #include <stdio.h>
-#include <htslib/vcf_sweep.h>
+
+#include "../htslib/vcf_sweep.h"
 
 int main(int argc, char **argv)
 {
@@ -62,7 +63,7 @@ int main(int argc, char **argv)
     {
         // get copy of the PL vectors
         nPLs = bcf_get_format_int32(hdr, rec, "PL", &PLs, &mPLs);
-        if ( !nPLs ) continue;  // PL not present
+        if ( nPLs <= 0 ) continue;  // PL not present
 
         // how many values are there per sample
         int nvals = nPLs / bcf_hdr_nsamples(hdr);
@@ -90,7 +91,7 @@ int main(int argc, char **argv)
     while ( (rec = bcf_sweep_bwd(sw)) )
     {
         nPLs = bcf_get_format_int32(hdr, rec, "PL", &PLs, &mPLs);
-        if ( !nPLs ) continue;
+        if ( nPLs <= 0 ) continue;
         int nvals = nPLs / bcf_hdr_nsamples(hdr);
         int32_t *ptr = PLs;
         for (i=0; i<bcf_hdr_nsamples(hdr); i++)

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2013-2018 Genome Research Ltd.
+Copyright (c) 2013-2019 Genome Research Ltd.
 Authors: James Bonfield <jkb@sanger.ac.uk>, Valeriu Ohan <vo2@sanger.ac.uk>
 
 Redistribution and use in source and binary forms, with or without
@@ -53,18 +53,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-// For structure assignment. Eg kstring_t s = KS_INITIALIZER;
-#define KS_INITIALIZER {0,0,0}
-
-// For initialisation elsewhere. Eg KS_INIT(x->str);
-#define KS_INIT(ks) ((ks)->l = 0, (ks)->m = 0, (ks)->s = NULL)
-
-// Frees the string subfield only. Assumes 's' itself is static.
-#define KS_FREE(ks) do { if ((ks)->s) {free((ks)->s); (ks)->s = NULL;} } while(0)
-
-#define TYPEKEY(a) (((a)[0]<<8)|((a)[1]))
-
-#define SAM_HDR_LINES 32
+/*! Make a single integer out of a two-letter type code */
+static inline khint32_t TYPEKEY(const char *type) {
+    unsigned int u0 = (unsigned char) type[0];
+    unsigned int u1 = (unsigned char) type[1];
+    return (u0 << 8) | u1;
+}
 
 /*
  * Proposed new SAM header parsing
@@ -133,7 +127,7 @@ typedef struct sam_hrec_type_s {
 /*! Parsed \@SQ lines */
 typedef struct {
     const char *name;
-    uint32_t len;
+    hts_pos_t len;
     sam_hrec_type_t *ty;
 } sam_hrec_sq_t;
 

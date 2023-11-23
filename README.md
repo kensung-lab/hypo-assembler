@@ -138,9 +138,9 @@ To run the demo:
 #### Running demo with manual compilation
 
 For the puposes of this demo, the following external library is assumed:
-- [minimap2 2.26]{https://github.com/lh3/minimap2/releases/tag/v2.26}
-- [FlyE 2.92]{https://github.com/fenderglass/Flye/releases/tag/2.9.2}
-- [KMC 3.2.2]{https://github.com/refresh-bio/KMC/releases/tag/v3.2.2}
+- [minimap2 2.26](https://github.com/lh3/minimap2/releases/tag/v2.26)
+- [FlyE 2.92](https://github.com/fenderglass/Flye/releases/tag/2.9.2)
+- [KMC 3.2.2](https://github.com/refresh-bio/KMC/releases/tag/v3.2.2)
 
 Assuming the above exact commands for compilation, hypo executable will be in build/bin/hypo
 After compilation, run the following command from the top directory:
