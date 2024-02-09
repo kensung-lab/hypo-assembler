@@ -88,7 +88,34 @@ namespace hypo {
         }
         
         int load_short_alignments(hypo::Objects & objects, const std::string load_path) {
-            return 0;
+            auto sam_file = sam_open(load_path.c_str(), "r");
+            auto sam_header = sam_hdr_read(sam_file);
+            auto current_align = bam_init1();
+            
+            while(sam_read1(sam_file, sam_header, current_align)>=0) {
+                // ignore unmapped reads
+                if (current_align->core.flag & (BAM_FUNMAP)) {
+                    continue;
+                }
+                
+                // ignore secondary and failed reads
+                if (current_align->core.flag & (BAM_FSECONDARY | BAM_FQCFAIL | BAM_FDUP)) { 
+                    continue;
+                }
+                
+                // filter out quality value (long reads)
+                if (current_align->core.qual < 2) {
+                    continue;
+                }
+                
+                // filter out invalid reads
+                if (current_align->pos < 0) {
+                    continue;
+                }
+                
+                
+                std::string contig_name(sam_hdr_tid2name(sam_header, current_align->core.tid));
+            }
         }
         
         int load_long_alignments(hypo::Objects & objects, const std::string load_path) {
@@ -111,16 +138,14 @@ namespace hypo {
                 if (current_align->core.qual < 2) {
                     continue;
                 }
+                // filter out invalid reads
+                
+                
+                if (current_align->pos < 0) {
+                    continue;
+                }
                 
                 std::string contig_name(sam_hdr_tid2name(sam_header, current_align->core.tid));
-                
-                // int contig_id = objects.find_contig(contig_name);
-                // if(contig_id == -1) {
-                //    fprintf(stderr, "[Hypo::Hypo] Error: Alignment File error: Contig-reference (%s) does not exist in the draft!\n",cname.c_str());
-                //    exit(1);
-                //}
-                
-                // objects.add_alignment(contig_id, Alignment(current_align));
             }
         }
         
