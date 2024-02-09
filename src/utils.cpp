@@ -109,7 +109,7 @@ namespace hypo {
                 }
                 
                 // filter out invalid reads
-                if (current_align->pos < 0) {
+                if (current_align->core.pos < 0) {
                     continue;
                 }
                 
@@ -141,7 +141,7 @@ namespace hypo {
                 // filter out invalid reads
                 
                 
-                if (current_align->pos < 0) {
+                if (current_align->core.pos < 0) {
                     continue;
                 }
                 
