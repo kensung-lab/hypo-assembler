@@ -4,12 +4,11 @@
 Hypo is a package of both polisher, capable of correcting draft genomes, and an assembler to assemble a diploid genome. It exploits unique genomic kmers to both selectively polish only segments of contigs and to increase mapping accuracy.
 
 ## Installation
-Hypo is only available for Unix-like platforms (Linux and MAC OS). Currently, we provide the option of installation from source with CMake and a Docker image.
-
+Hypo is only available for Unix-like platforms (Linux and MAC OS). Currently, we provide the option of installation from source with CMake.
 CmakeLists is provided in the project root folder. 
 
 ### Pre-requisites
-For installing from the source, the following requirements are assumed to be installed already (with path to their binaries available in $PATH).
+The following requirements are assumed to be installed (with path to their binaries available in $PATH).
 - Zlib
 - OpenMP
 - GCC (>=7.3)
@@ -22,160 +21,86 @@ For installing from the source, the following requirements are assumed to be ins
     sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 60 --slave /usr/bin/g++ g++ /usr/bin/g++-8
     sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5;
   ```
-- [HTSLIB](https://github.com/samtools/htslib) (version >=1.16)
-  + If htslib version 1.16 or higher is not installed, we recommend using `install_htslib.sh` in the project folder to install it locally.
-
 - [KMC3](https://github.com/refresh-bio/KMC)
 - [minimap2](https://github.com/lh3/minimap2)
-- [FlyE](https://github.com/fenderglass/Flye)
 - [samtools](https://github.com/samtools/samtools)
+- [FlyE](https://github.com/fenderglass/Flye) (optional, if draft assembly is not provided)
+- [pysam](https://pysam.readthedocs.io/en/latest/installation.html)
+- [BioPython](https://biopython.org/wiki/Download)
 
 
-To install and compile, use cmake to build i.e.
+The easiest way to run the pipeline is to run build_all.sh. This will write a run_all directory, from where the run can be easily executed.
 
 ```
-mkdir build
-cd build
-cmake ..
-make
-```
-
-If there are issues on building concerning htslib, run install_htslib.sh to fix out the htslib dependency, or put a fully built htslib on external/htslib.
-
-Docker image is available on dockerhub: https://hub.docker.com/r/jcsyd/hypo-assembler
-To run it, simply pull:
-```
-docker pull jcsyd/hypo-assembler:v0.9
+./build_all.sh
+cd run_all
 ```
 
 ### Usage
 
+Usage with run_all.sh is as follows:
+
 ```console
- Usage: hypo <args>
+ Usage: ./run_all.sh <args>
 
 ** Mandatory arguments
-    -1 or --short-read-1
+    -1 <short read file 1>
     The file containing the first of the short read input
     
-    -2 or --short-read-2
+    -2 <short read file 2>
     The file containing the pair of the short read input
     
-    -l or --long-read
+    -l <long reads file>
     The file containing long reads
 
 ** Optional parameters
-    -3 or --hic-read-1
-    The file containing the first of the hi-c read input
-    [Default] None
-    
-    -4 or --hic-read-2
-    The file containing the second of the hi-c read input
-    [Default] None
-    
-    -t or --threads
-    The number of threads to run (including FlyE and minimap2)
+    -t <thread count>
+    The number of threads to run
     [Default] 1
     
-    -w or --workdir
-    The working directory to put temporary files and results
-    [Default] $PWD/hypo_wd
+    -o <output prefix>
+    The prefix for the output file names. The outputs will be <prefix>_1.fa and <prefix>_2.fa
+    [Default] hypo
     
-    -F or --flye-path
-    The path to flye executable
-    [Default] flye (expected to find on $PATH)
-    
-    -M or --minimap2-path
-    The path to minimap2 executable
-    [Default] minimap2 (expected to find on $PATH)
-    
-    -S or --samtools-path
-    The path to samtools executable
-    [Default] samtools (expected to find on $PATH)
-    
-    -s or --size-ref
-    Estimated genome size
-    [Default] 3000000000
-    
-    -c or --coverage-short
-    Estimated coverage of the short reads
-    [Default] Estimated from reads
-    
-    -C or --coverage-long
-    Estimated coverage of the long reads
-    [Default] Estimated from reads
-    
-    -@ or --samtools-thread
-    The number of thread to use for samtools (will be used in parallel with the initial number of threads, (samtools -@)
-    [Default] 1
-    
-    -Z or --samtools-memory
-    The memory used by samtools (samtools -m)
-    [Default] 768M
-    
-    -X or --samtools-temp
-    The path for temporary files by samtools (samtools -T)
-    [Default] hypo_wd/short_read_initial and hypo_wd/long_read_initial
-    
-    -I or --debug
-    Turns on debug mode to print out temporary files. Not recommended due to high I/O requirements, unless there is an issue encountered.
-    [Default] Off
-    
-    -B or --long-align
-    Use long reads alignment files to speed up initial process.
+    -d <assembly draft>
+    The file containing the original draft. If not provided, FlyE will be run from the given long reads
     [Default] None
     
-    -b or --short-align
-    Use short reads alignment files to speed up initial process.
+    -B <long reads mapping to draft>
+    Mappings of the long reads to the original draft as provided in -d. If not provided, minimap2 will be run to align the long reads
     [Default] None
-```
+    
+    -s <estimated size>
+    Estimated size of the assembled genome. K/M/G suffix accepted
+    [Default] 3G
+    
+    -T <tempdir>
+    Directory to write temporary files
+    [Default] temp
 
 ### Demo
 
 We have included a small demo data to test the installation in demo/
-
-To run the demo:
-
-#### Running demo with manual compilation
 
 For the puposes of this demo, the following external library is assumed:
 - [minimap2 2.26](https://github.com/lh3/minimap2/releases/tag/v2.26)
 - [FlyE 2.92](https://github.com/fenderglass/Flye/releases/tag/2.9.2)
 - [KMC 3.2.2](https://github.com/refresh-bio/KMC/releases/tag/v3.2.2)
 
-Assuming the above exact commands for compilation, hypo executable will be in build/bin/hypo
-After compilation, run the following command from the top directory:
-
+Assuming build_all.sh is already run:
 ```
-build/bin/hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 demo/hic2.fq -t 40 -s 1500000
-```
-
-This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes, depending on how your setup.
-The resulting assembly are `hypo_wd/final_1.fa` and `hypo_wd/final_2.fa`.
-
-
-
-To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
-
-```
-diff hypo_wd/final_1.fa demo/expected_result/final_1.fa
-diff hypo_wd/final_2.fa demo/expected_result/final_2.fa 
+cd run_all
+./run_all.sh -1 ../demo/il1.fq -2 ../demo/il2.fq -l ../demo/ont.fq.gz -t 40
 ```
 
-If both commands don't output anything, then the program has run without issues.
+This will run hypo-assembler on 40 threads.
 
-#### Running demo with docker
+The outputs will be hypo_1.fa and hypo_2.fa in the run_all directory.
 
-Assuming the directory of the demo is /home/testing/hypo_assembler/demo and you want to output to /home/testing/hypo_wd, you can run the following command:
-
+To make sure the program runs properly, you can compare the output with the results in demo/expected_result/hypo_1.fa and demo/expected_result/hypo_2.fa, i.e.
 ```
-docker run -v /home/testing/hypo_assembler/demo:/inputs:ro -v /home/testing/hypo_wd:/output jcsyd/hypo-assembler:v0.9 -1 /inputs/il1.fq -2 /inputs/il2.fq -l /inputs/nanopore.fq.gz -t 40 -3 /inputs/hic1.fq -4 /inputs/hic2.fq -w /output -s 1500000
-```
-
-To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
-
-```
-diff /home/testing/hypo_wd/final_1.fa /home/testing/hypo_assembler/demo/expected_result/final_1.fa
-diff /home/testing/hypo_wd/final_2.fa /home/testing/hypo_assembler/demo/expected_result/final_2.fa 
+diff hypo_1.fa ../demo/expected_result/hypo_1.fa
+diff hypo_2.fa ../demo/expected_result/hypo_2.fa
 ```
 
-If both commands don't output anything, then the program has run without issues.
+If both commands execute without any output, then the program works properly.
