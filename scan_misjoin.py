@@ -8,7 +8,7 @@ from Bio.SeqRecord import SeqRecord
 
 if len(sys.argv) < 4:
     print("Usage: python scan_misjoin.py <initial assembly> <reads alignment file> <output file>")
-    exit 1
+    exit(1)
 
 samfile = pysam.AlignmentFile(sys.argv[2], "rb")
 
