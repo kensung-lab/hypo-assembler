@@ -96,3 +96,88 @@ diff hypo_2.fa ../demo/expected_result/hypo_2.fa
 ```
 
 If both commands execute without any output, then the program works properly.
+
+### Running hypo-polisher
+
+We recommend running the full package of hypo-assembler with -d option to improve a quality of a draft genome. However, we also provide the option of running the polisher separate from the assembler.
+
+To run them, simply run the binary "hypo" built from the polisher directory.
+```
+Usage: hypo <args>
+
+ ** Mandatory args:
+	-r, --reads-short <str>
+	Input file name containing reads (in fasta/fastq format; can be compressed). A list of files containing file names in each line can be passed with @ prefix.
+
+	-d, --draft <str>
+	Input file name containing the draft contigs (in fasta/fastq format; can be compressed). 
+
+	-b, --bam-sr <str>
+	Input file name containing the alignments of short reads against the draft (in bam/sam format; must have CIGAR information). 
+
+	-c, --coverage-short <int>
+	Approximate mean coverage of the short reads. 
+
+	-s, --size-ref <str>
+	Approximate size of the genome (a number; could be followed by units k/m/g; e.g. 10m, 2.3g). 
+
+** Optional args:
+	-B, --bam-lr <str>
+	Input file name containing the alignments of long reads against the draft (in bam/sam format; must have CIGAR information). 
+	[Only Short reads polishing will be performed if this argument is not given]
+
+	-o, --output <str>
+	Output file name. 
+	[Default] hypo_<draft_file_name>.fasta in the working directory.
+
+ 	-t, --threads <int>
+	Number of threads. 
+	[Default] 1.
+
+ 	-p, --processing-size <int>
+	Number of contigs to be processed in one batch. Lower value means less memory usage but slower speed. 
+	[Default] All the contigs in the draft.
+
+ 	-m, --match-sr <int>
+	Score for matching bases for short reads. 
+	[Default] 5.
+
+ 	-x, --mismatch-sr <int>
+	Score for mismatching bases for short reads. 
+	[Default] -4.
+
+ 	-g, --gap-sr <int>
+	Gap penalty for short reads (must be negative). 
+	[Default] -8.
+
+ 	-M, --match-lr <int>
+	Score for matching bases for long reads. 
+	[Default] 3.
+
+ 	-X, --mismatch-lr <int>
+	Score for mismatching bases for long reads. 
+	[Default] -5.
+
+ 	-G, --gap-lr <int>
+	Gap penalty for long reads (must be negative). 
+	[Default] -4.
+
+ 	-n, --ned-th <int>
+	Threshold for Normalised Edit Distance of long arms allowed in a window (in %). Higher number means more arms allowed which may slow down the execution.
+	[Default] 20.
+
+ 	-q, --qual-map-th <int>
+	Threshold for mapping quality of reads. The reads with mapping quality below this threshold will not be taken into consideration. 
+	[Default] 2.
+
+ 	-i, --intermed
+	Store or use (if already exist) the intermediate files. 
+	[Currently, only Solid kmers are stored as an intermediate file.].
+
+ 	-h, --help
+	Print the usage. 
+```
+
+### Contact
+
+Other than raising issues in github, you can contact joshuac@comp.nus.edu.sg for specific issues.
