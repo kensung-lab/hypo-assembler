@@ -12,15 +12,6 @@ The following requirements are assumed to be installed (with path to their binar
 - Zlib
 - OpenMP
 - GCC (>=7.3)
-  * Following are the commands to update GCC (say to GCC 8) on an Ubuntu machine (from say GCC 5):
-  ```console
-    sudo apt-get update; sudo apt-get install build-essential software-properties-common -y;
-    sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; sudo apt update; 
-    sudo apt install gcc-snapshot -y; sudo apt update
-    sudo apt install gcc-8 g++-8 -y; 
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 60 --slave /usr/bin/g++ g++ /usr/bin/g++-8
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5;
-  ```
 - [KMC3](https://github.com/refresh-bio/KMC)
 - [minimap2](https://github.com/lh3/minimap2)
 - [samtools](https://github.com/samtools/samtools)
@@ -77,6 +68,7 @@ Usage with run_all.sh is as follows:
     -T <tempdir>
     Directory to write temporary files
     [Default] temp
+```
 
 ### Demo
 
