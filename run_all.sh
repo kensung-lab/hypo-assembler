@@ -10,6 +10,8 @@ echo "  -d <draft>          draft assembly                                  [ de
 echo "  -o <output_prefix>  prefix of the output files                      [ default:      hypo]"  
 echo "  -B <long_read_map>  mapping of long reads to draft                  [ default:      none]"
 echo "  -t <threads>        the number of threads to use.                   [ default:        1 ]"
+echo "  -m <sortmem>        the memory used to sort alignment files         [ default:       1G ]"
+echo "  -k <kmer length>    the length of the solid kmer used               [ default:       17 ]"
 echo "  -s <estimated_size> estimated genome size (suffix K/M/G accepted)   [ default:       3G ]"
 echo "  -T <tempdir>   directory to store intermediate files                [ default:    temp/ ]"
 echo "  -h             display this help and exit"
@@ -25,9 +27,9 @@ threads="1"
 sortmem="10G"
 kmerlen="17"
 tempdir="temp/"
-genomesize="3G"
+genomesize="1G"
 outputpref="hypo"
-while getopts "1:2:l:d:B:t:T:hs:o:" opt; do
+while getopts "1:2:l:d:B:t:T:hs:o:m:k:" opt; do
   case $opt in
     1)
         reads1="$OPTARG"
@@ -55,6 +57,12 @@ while getopts "1:2:l:d:B:t:T:hs:o:" opt; do
         ;;
     s)
         genomesize="$OPTARG"
+        ;;
+    m)
+        sortmem="$OPTARG"
+        ;;
+    k)
+        kmerlen="$OPTARG"
         ;;
     h)
         usage

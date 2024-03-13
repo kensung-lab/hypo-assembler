@@ -71,6 +71,14 @@ Usage with run_all.sh is as follows:
     -T <tempdir>
     Directory to write temporary files
     [Default] temp
+    
+    -m <sortmem>
+    The memory used for each samtools sorting thread. Samtools will use number of threads * sortmem memory.
+    [Default] 1G
+    
+    -k <kmer length>
+    The length of solid kmers used in the method. Recommended is 17 for human genome.
+    [Default] 17
 ```
 
 ### Demo
