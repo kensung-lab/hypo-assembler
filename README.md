@@ -19,9 +19,12 @@ The following requirements are assumed to be installed (with path to their binar
 - [pysam](https://pysam.readthedocs.io/en/latest/installation.html)
 - [BioPython](https://biopython.org/wiki/Download)
 
+First, you need to clone the repository recusrively (for the submodules)
+```
+git clone --recursive https://github.com/kensung-lab/hypo-assembler
+```
 
-The easiest way to run the pipeline is to run build_all.sh. This will write a run_all directory, from where the run can be easily executed.
-
+After cloning, the easiest way to run the pipeline is to run build_all.sh. This will write a run_all directory, from where the run can be easily executed.
 ```
 ./build_all.sh
 cd run_all

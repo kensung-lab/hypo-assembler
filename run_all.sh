@@ -27,7 +27,7 @@ kmerlen="17"
 tempdir="temp/"
 genomesize="3G"
 outputpref="hypo"
-while getopts "1:2:l:d:B:t:T:h" opt; do
+while getopts "1:2:l:d:B:t:T:hs:o:" opt; do
   case $opt in
     1)
         reads1="$OPTARG"
