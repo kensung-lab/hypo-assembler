@@ -24,10 +24,10 @@ longreads=""
 longbam=""
 draft=""
 threads="1"
-sortmem="10G"
+sortmem="1G"
 kmerlen="17"
 tempdir="temp/"
-genomesize="1G"
+genomesize="3G"
 outputpref="hypo"
 while getopts "1:2:l:d:B:t:T:hs:o:m:k:" opt; do
   case $opt in
