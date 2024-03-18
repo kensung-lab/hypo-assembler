@@ -9,7 +9,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     message("Debug mode")
 endif()
 
-option(optimise_for_native "Build with -march=native" ON)
+option(optimise_for_native "Build with -march=native" OFF)
 
 if(optimise_for_native)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -O3 -march=native")

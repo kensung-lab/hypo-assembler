@@ -19,6 +19,8 @@ The following requirements are assumed to be installed (with path to their binar
 - [pysam](https://pysam.readthedocs.io/en/latest/installation.html)
 - [BioPython](https://biopython.org/wiki/Download)
 
+### Building
+
 First, you need to clone the repository recusrively (for the submodules)
 ```
 git clone --recursive https://github.com/kensung-lab/hypo-assembler
@@ -29,6 +31,24 @@ After cloning, the easiest way to run the pipeline is to run build_all.sh. This 
 ./build_all.sh
 cd run_all
 ```
+
+The following optional options are available for build_all.sh
+```console
+ Usage: ./build_all.sh <args>
+ 
+** Optional parameters
+    -t <thread count>
+    The number of threads to run make
+    [Default] 10
+    
+    -n
+    If present, will run optimized for native (i.e. -march=native)
+    
+    -o <build directory>
+    Directory to put executables and scripts.
+    [Default] run_all
+```
+
 
 ### Usage
 
@@ -75,6 +95,10 @@ Usage with run_all.sh is as follows:
     -m <sortmem>
     The memory used for each samtools sorting thread. Samtools will use number of threads * sortmem memory.
     [Default] 1G
+    
+    -@ <sortthreads>
+    The threads used for each samtools sorting. Separate from the normal number of threads.
+    [Default] 10
     
     -k <kmer length>
     The length of solid kmers used in the method. Recommended is 17 for human genome.

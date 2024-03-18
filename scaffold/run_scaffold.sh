@@ -10,6 +10,7 @@ echo "  -T <tempdir>   directory to store intermediate files                    
 echo "  -f             toggle removing solid kmers with > 2 occurences                             [ default: disabled ]"
 echo "  -p             toggle assuming reads as pacbio instead of ONT for mapping                  [ default: disabled ]"
 echo "  -m <sortmem>   memory to use in each thread of samtools sort                               [ default:       1G ]"
+echo "  -@ <sortthreads>    the threads used to sort alignment files                               [ default:       10 ]"
 echo "  -h             display this help and exit"
 exit 1
 }
@@ -24,7 +25,8 @@ longreads=""
 kmerlen="17"
 readtype="ont"
 sortmem="1G"
-while getopts ":k:i:t:fT:o:l:pm:h" opt; do
+sortthreads="10"
+while getopts ":k:i:t:fT:o:l:pm:@:h" opt; do
   case $opt in
     k)
         solids="$OPTARG"
@@ -52,6 +54,9 @@ while getopts ":k:i:t:fT:o:l:pm:h" opt; do
         ;;
     m)
         sortmem="$OPTARG"
+        ;;
+    @)
+        sortthreads="$OPTARG"
         ;;
     h)
         usage
@@ -101,10 +106,8 @@ echo "python join.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $te
 python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir > $tempdir/identity.txt
 
 echo "[SCAFFOLD: STEP 3] Mapping long reads"
-echo "minimap2 -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS > $tempdir/map.bam"
-minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS > $tempdir/map.bam
-echo "samtools sort -@ $threads -o $tempdir/map.sorted.bam $tempdir/map.bam"
-samtools sort -@ $threads -m $sortmem -o $tempdir/map.sorted.bam $tempdir/map.bam
+echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
+minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
 echo "samtools index -@ $threads $tempdir/map.sorted.bam"
 samtools index -@ $threads $tempdir/map.sorted.bam
 
