@@ -159,7 +159,7 @@ minimap2 -I 64G -ax map-ont -t $threads $tempdir/overlap.fa $longreads | samtool
 minimap2 -I 64G -ax sr -t $threads $tempdir/overlap.fa $reads1 $reads2 | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/overlap_short.bam
 
 echo "[STEP 5] Polishing" | tee -a $tempdir/run.log
-./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -t $threads -o $tempdir/polished 2>&1 | tee $tempdir/polish.log
+./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -t $threads -p 1 -o $tempdir/polished 2>&1 | tee $tempdir/polish.log
 
 echo "[STEP 6] Scaffolding" | tee -a $tempdir/run.log
 ./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -l $longreads -t $threads -o $tempdir/scaffold_1 2>&1 | tee $tempdir/scaffold.log
