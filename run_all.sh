@@ -14,6 +14,7 @@ echo "  -m <sortmem>        the memory used to sort alignment files         [ de
 echo "  -@ <sortthreads>    the threads used to sort alignment files        [ default:       10 ]"
 echo "  -k <kmer length>    the length of the solid kmer used               [ default:       17 ]"
 echo "  -s <estimated_size> estimated genome size (suffix K/M/G accepted)   [ default:       3G ]"
+echo "  -M <kmcmem>         max memory to be used by KMC (in GB)            [ default:       12 ]"
 echo "  -T <tempdir>   directory to store intermediate files                [ default:    temp/ ]"
 echo "  -h             display this help and exit"
 exit 1
@@ -31,7 +32,8 @@ tempdir="temp/"
 genomesize="3G"
 outputpref="hypo"
 sortthreads="10"
-while getopts "1:2:l:d:B:t:T:hs:o:m:k:@:" opt; do
+kmcmem="12"
+while getopts "1:2:l:d:B:t:T:hs:o:m:k:@:M:" opt; do
   case $opt in
     1)
         reads1="$OPTARG"
@@ -62,6 +64,9 @@ while getopts "1:2:l:d:B:t:T:hs:o:m:k:@:" opt; do
         ;;
     m)
         sortmem="$OPTARG"
+        ;;
+    M)
+        kmcmem="$OPTARG"
         ;;
     k)
         kmerlen="$OPTARG"
@@ -145,7 +150,7 @@ fi
 echo "[STEP 1] Getting solid kmers" | tee -a $tempdir/run.log
 echo $reads1 > $tempdir/shorts.txt
 echo $reads2 >> $tempdir/shorts.txt
-./suk -k 17 -i @"$tempdir"/shorts.txt -t $threads -e 2>&1 | tee $tempdir/suk.log
+./suk -k 17 -i @"$tempdir"/shorts.txt -t $threads -m $kmcmem -e 2>&1 | tee $tempdir/suk.log
 mv SUK_k17.bv $tempdir/SUK_k17.bv
 
 echo "[STEP 2] Scanning misjoin" | tee -a $tempdir/run.log
@@ -159,7 +164,7 @@ minimap2 -I 64G -ax map-ont -t $threads $tempdir/overlap.fa $longreads | samtool
 minimap2 -I 64G -ax sr -t $threads $tempdir/overlap.fa $reads1 $reads2 | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/overlap_short.bam
 
 echo "[STEP 5] Polishing" | tee -a $tempdir/run.log
-./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -t $threads -p 1 -o $tempdir/polished 2>&1 | tee $tempdir/polish.log
+./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -L $kmcmem -t $threads -p 1 -o $tempdir/polished 2>&1 | tee $tempdir/polish.log
 
 echo "[STEP 6] Scaffolding" | tee -a $tempdir/run.log
 ./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -l $longreads -t $threads -o $tempdir/scaffold_1 2>&1 | tee $tempdir/scaffold.log

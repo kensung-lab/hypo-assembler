@@ -100,6 +100,10 @@ Usage with run_all.sh is as follows:
     The threads used for each samtools sorting. Separate from the normal number of threads.
     [Default] 10
     
+    -M <kmcmem>
+    The max memory for KMC, in GB
+    [Default] 12
+    
     -k <kmer length>
     The length of solid kmers used in the method. Recommended is 17 for human genome.
     [Default] 17
