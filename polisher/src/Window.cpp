@@ -94,67 +94,89 @@ void Window::generate_consensus_short(const UINT32 engine_idx) {
     // internal
     // Avoid draft if an internal arm exists
     _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kNW);
-    if (_internal_arms.size()==0) { // use draft only when no internal arm
+    if (_internal_arms.size()==0) { // use POA only when no internal arm
         // draft will never have zero size
         //std::string unpacked_str(std::move(_internal_arms[i].unpack()));
         std::string modified_str = cHead + _draft.unpack() + cTail;
         auto alignment = _alignment_engines[engine_idx]->align(modified_str, graph);
         graph->add_alignment(alignment, modified_str);
-    }
-    for (UINT i =0; i <  _internal_arms.size(); ++i) {
-        if (_internal_arms[i].get_seq_size() > 0) {                
-            //std::string unpacked_str(std::move(_internal_arms[i].unpack()));
-            std::string modified_str = cHead + _internal_arms[i].unpack() + cTail;
+        // prefix (add in reverse order (Since bam is sorted. last one should be the longest)
+        _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kLOV);
+        for (auto it = _pre_arms.rbegin(); it!=_pre_arms.rend(); ++it) {
+            if (it->get_seq_size() > 0) {
+            //std::string unpacked_str(std::move(it.unpack()));
+            std::string modified_str = cHead + it->unpack();
             arms_added = true;
             auto alignment = _alignment_engines[engine_idx]->align(modified_str, graph);
             graph->add_alignment(alignment, modified_str);
+            }
         }
-    }
-    // prefix (add in reverse order (Since bam is sorted. last one should be the longest)
-    _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kLOV);
-    for (auto it = _pre_arms.rbegin(); it!=_pre_arms.rend(); ++it) {
-        if (it->get_seq_size() > 0) {
-        //std::string unpacked_str(std::move(it.unpack()));
-        std::string modified_str = cHead + it->unpack();
-        arms_added = true;
-        auto alignment = _alignment_engines[engine_idx]->align(modified_str, graph);
-        graph->add_alignment(alignment, modified_str);
+        //suffix
+        _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kROV);
+        for (auto it = _suf_arms.begin(); it!=_suf_arms.end(); ++it) {
+            if (it->get_seq_size() > 0) {
+            //std::string unpacked_str(std::move(it.unpack()));
+            std::string modified_str = it->unpack() + cTail;
+            arms_added = true;
+            auto alignment = _alignment_engines[engine_idx]->align(modified_str, graph);
+            graph->add_alignment(alignment, modified_str);
+            }
         }
-    }
-    //suffix
-    _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kROV);
-    for (auto it = _suf_arms.begin(); it!=_suf_arms.end(); ++it) {
-        if (it->get_seq_size() > 0) {
-        //std::string unpacked_str(std::move(it.unpack()));
-        std::string modified_str = it->unpack() + cTail;
-        arms_added = true;
-        auto alignment = _alignment_engines[engine_idx]->align(modified_str, graph);
-        graph->add_alignment(alignment, modified_str);
+        ///*************** FOR DEBUGGING ***************
+        #ifdef DEBUG3
+        std::vector<std::string> msa;
+        graph->generate_multiple_sequence_alignment(msa, true);
+        auto seq_num = 0;
+        std::cout << "================================="<< seg.get_id() <<std::endl;
+        for (const auto &it : msa){
+            std::cout << seq_num<< "\t" << it.c_str() << std::endl;
+            ++seq_num;
         }
+        #endif
+        //*/ // /********************************************/
+        if (arms_added)
+        { 
+            consensus = graph->generate_consensus();
+            set_marked_consensus(consensus);  
+            set_marked_consensus_2(consensus);  
+        }
+        else {
+            set_consensus(_draft.unpack());
+            set_consensus_2(_draft.unpack());
+        }
+    } else {
+        std::unordered_map<std::string, int> counter;
+        
+        int max_counter = 0;
+        int max_counter_2 = 0;
+        std::string max_str;
+        std::string max_str_2;
+        
+        for (UINT i = 0; i <  _internal_arms.size(); ++i) {
+            std::string current_str = _internal_arms[i].unpack();
+            
+            if(counter.find(current_str) == counter.end()) {
+                counter[current_str] = 1;
+            } else {
+                counter[current_str] = counter[current_str] + 1;
+            }
+            
+            if(counter[current_str] > max_counter) {
+                max_counter_2 = max_counter;
+                max_str_2 = max_str;
+                
+                max_counter = counter[current_str];
+                max_str = current_str;
+            } else if(counter[current_str] > max_counter_2) {
+                max_counter_2 = counter[current_str];
+                max_str_2 = current_str;
+            }
+        }
+        
+        set_consensus(max_str);        
+        if(max_counter_2 > 0) set_consensus_2(max_str_2);
+        else set_consensus_2(max_str);
     }
-    ///*************** FOR DEBUGGING ***************
-    #ifdef DEBUG3
-    std::vector<std::string> msa;
-    graph->generate_multiple_sequence_alignment(msa, true);
-    auto seq_num = 0;
-    std::cout << "================================="<< seg.get_id() <<std::endl;
-    for (const auto &it : msa){
-        std::cout << seq_num<< "\t" << it.c_str() << std::endl;
-        ++seq_num;
-    }
-    #endif
-    //*/ // /********************************************/
-    if (arms_added)
-    { 
-        consensus = graph->generate_consensus();
-        set_marked_consensus(consensus);  
-        set_marked_consensus_2(consensus);  
-    }
-    else {
-        set_consensus(_draft.unpack());
-        set_consensus_2(_draft.unpack());
-    }
-    
 }
 
 void Window::generate_consensus_long(const UINT32 engine_idx, bool initial) {
