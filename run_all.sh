@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -e -o pipefail
 
 usage (){
 echo "  -1 <reads_1>        short read pair 1                               [          required ]"
@@ -150,8 +150,8 @@ fi
 echo "[STEP 1] Getting solid kmers" | tee -a $tempdir/run.log
 echo $reads1 > $tempdir/shorts.txt
 echo $reads2 >> $tempdir/shorts.txt
-./suk -k 17 -i @"$tempdir"/shorts.txt -t $threads -m $kmcmem -e 2>&1 | tee $tempdir/suk.log
-mv SUK_k17.bv $tempdir/SUK_k17.bv
+./suk -k 17 -i @"$tempdir"/shorts.txt -t $threads -m $kmcmem -e -w $tempdir/suk_kmc -o $tempdir/SUK 2>&1 | tee $tempdir/suk.log
+# mv SUK_k17.bv $tempdir/SUK_k17.bv
 
 echo "[STEP 2] Scanning misjoin" | tee -a $tempdir/run.log
 python scan_misjoin.py $draft $longbam $tempdir/misjoin.fa 2>&1 | tee -a $tempdir/misjoin.log
