@@ -16,6 +16,7 @@ echo "  -k <kmer length>    the length of the solid kmer used               [ de
 echo "  -s <estimated_size> estimated genome size (suffix K/M/G accepted)   [ default:       3G ]"
 echo "  -M <kmcmem>         max memory to be used by KMC (in GB)            [ default:       12 ]"
 echo "  -T <tempdir>   directory to store intermediate files                [ default:    temp/ ]"
+echo "  -D             debug mode                                           [ default: disabled ]"
 echo "  -h             display this help and exit"
 exit 1
 }
@@ -33,7 +34,8 @@ genomesize="3G"
 outputpref="hypo"
 sortthreads="10"
 kmcmem="12"
-while getopts "1:2:l:d:B:t:T:hs:o:m:k:@:M:" opt; do
+debugmode=""
+while getopts "1:2:l:d:B:t:T:hs:o:m:k:@:M:D" opt; do
   case $opt in
     1)
         reads1="$OPTARG"
@@ -73,6 +75,9 @@ while getopts "1:2:l:d:B:t:T:hs:o:m:k:@:M:" opt; do
         ;;
     @)
         sortthreads="$OPTARG"
+        ;;
+    D)
+        debugmode="1"
         ;;
     h)
         usage
@@ -164,10 +169,17 @@ minimap2 -I 64G -ax map-ont -t $threads $tempdir/overlap.fa $longreads | samtool
 minimap2 -I 64G -ax sr -t $threads $tempdir/overlap.fa $reads1 $reads2 | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/overlap_short.bam
 
 echo "[STEP 5] Polishing" | tee -a $tempdir/run.log
-./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -L $kmcmem -t $threads -p 1 -o $tempdir/polished 2>&1 | tee $tempdir/polish.log
+if [ "$debugmode" == "" ]; then
+    ./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -L $kmcmem -t $threads -p 1 -o $tempdir/polished 2>&1 | tee $tempdir/polish.log
+else
+    ./hypo -d $tempdir/overlap.fa -s $genomesize -B $tempdir/overlap_long.bam -C 60 -b $tempdir/overlap_short.bam -r @"$tempdir"/shorts.txt -c 100 -L $kmcmem -t $threads -p 1 -o $tempdir/polished -i 2>&1 | tee $tempdir/polish.log
+fi
 
 echo "[STEP 6] Scaffolding" | tee -a $tempdir/run.log
-./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -l $longreads -t $threads -o $tempdir/scaffold_1 2>&1 | tee $tempdir/scaffold.log
-./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold_2 2>&1 | tee -a $tempdir/scaffold.log
+if [ "$debugmode" == "" ]; then
+    ./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -I $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold -T $tempdir 2>&1 | tee $tempdir/scaffold.log
+else
+    ./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -I $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold -T $tempdir -D 2>&1 | tee $tempdir/scaffold.log
+fi
 cp $tempdir/scaffold_1.fa ${outputpref}_1.fa
 cp $tempdir/scaffold_2.fa ${outputpref}_2.fa

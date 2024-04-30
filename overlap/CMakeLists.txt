@@ -30,6 +30,7 @@ link_directories(libs/sdsl-lite/install/lib
                 libs/htslib-1.9/lib)
 
 if (NOT TARGET sdsl)
+    set(ENV{BUILD_PORTABLE} 1) 
     add_subdirectory(libs/sdsl-lite EXCLUDE_FROM_ALL)    
 endif()
 

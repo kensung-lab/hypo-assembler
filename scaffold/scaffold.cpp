@@ -184,14 +184,26 @@ tuple<int, int, int, int, int, int> find_overlap(const vector<unordered_map<uint
 }
 
 int main(int argc, char* argv[]) {
-    if(argc < 4) {
-        cerr << "Usage: " << argv[0] << " <k> <kmers fasta> <contigs fasta> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)>" << endl;
+    if(argc < 5) {
+        cerr << "Usage: " << argv[0] << " <k> <kmers fasta> <contigs fasta> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)> <optional: debug_output>" << endl;
         return 1;
     }
     cerr << "Command: ";
     for(int i = 0; i < argc; i++) cerr << argv[i] << " ";
     cerr << endl;
     
+    ofstream out_debug;
+    
+    if(argc > 6) {
+        try {
+            out_debug.open(argv[6]);
+        } catch(exception const &e) {
+            cerr << "Can't open file" << endl;
+            cerr << e.what() << endl;
+            cerr << strerror(errno) << endl;
+            return -1;
+        }
+    }
     
     int thread_count = 1;
     try {
@@ -337,6 +349,16 @@ int main(int argc, char* argv[]) {
             // find best chaining score
             sort(solid_matches_forward.begin(), solid_matches_forward.end());
             sort(solid_matches_reverse.begin(), solid_matches_reverse.end());
+            
+            #pragma omp critical 
+            {
+                if(argc > 6) {
+                    out_debug << contig_names[i] << "\t" << contig_names[j] << "\n";
+                    
+                    for(int it = 0; it < solid_matches_forward.size(); it++) out_debug << "F\t" << get<0>(solid_matches_forward[it]) << "\t" << get<1>(solid_matches_forward[it]) << "\n";
+                    for(int it = 0; it < solid_matches_reverse.size(); it++) out_debug << "R\t" << get<0>(solid_matches_reverse[it]) << "\t" << get<1>(solid_matches_reverse[it]) << "\n";
+                }
+            }
             
             int max_score_forward = -1;
             int max_score_reverse = -1;
@@ -508,4 +530,5 @@ int main(int argc, char* argv[]) {
             else cout << contig_names[i] << "\t-1\t-1\tNA\t-1\t-1\t-1\t-1" << endl;
         }
     }
+    if(argc > 6) out_debug.close();
 }

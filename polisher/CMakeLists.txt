@@ -111,6 +111,7 @@ else()
     endif()
 
     if (NOT TARGET sdsl)
+        set(ENV{BUILD_PORTABLE} 1)
         add_subdirectory(external/sdsl-lite EXCLUDE_FROM_ALL)    
     endif()
 endif()

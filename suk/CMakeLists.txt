@@ -39,6 +39,7 @@ set(LIBSOURCES
 find_package (ZLIB REQUIRED)
 
 if (NOT TARGET sdsl)
+    set(ENV{BUILD_PORTABLE} 1) 
     add_subdirectory(external/sdsl-lite EXCLUDE_FROM_ALL)    
 endif()
 if (NOT TARGET slog)
