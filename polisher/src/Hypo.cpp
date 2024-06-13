@@ -54,14 +54,9 @@ void Hypo::polish() {
             exit(1);
         }
         if (_cFlags.intermed) {
-            if (pSK->store(SKFILE)) {
-                std::string tm = _monitor.stop("[Hypo:Hypo]: Computed Solid kmers. ");
-                gStagefile << "Stage:SolidKmers [" << tm << "]\t" << STAGE_SK << std::endl;
-            }
-            else {
-                fprintf(stderr, "[Hypo::SolidKmers] Error: File Saving: Could not store the DS for Solid kmers!\n");
-                exit(1);
-            }
+            pSK->store(SKFILE);
+            std::string tm = _monitor.stop("[Hypo:Hypo]: Computed Solid kmers. ");
+            gStagefile << "Stage:SolidKmers [" << tm << "]\t" << STAGE_SK << std::endl;
         }
         else {
             _monitor.stop("[Hypo:Hypo]: Computed Solid kmers. ");

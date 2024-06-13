@@ -44,6 +44,12 @@ find_package(ZLIB REQUIRED)
 # Add CXX flags
 set (CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS} -O3")
 
+
+set(LIBSOURCES 
+    ${PROJECT_SOURCE_DIR}/CustomBitvector.hpp
+    ${PROJECT_SOURCE_DIR}/overlap.cpp
+)
+
 add_executable(find_overlap overlap.cpp)
 target_link_libraries(find_overlap hts z sdsl OpenMP::OpenMP_CXX)
 

@@ -98,6 +98,7 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags)
   flags.threads = 1;
   flags.expected_coverage = 50;
   flags.kmc_memory = 12;
+  flags.kmc_directory = "tmp";
   flags.exclude_hp = false;
   flags.dump_txt = false;
 

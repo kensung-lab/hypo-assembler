@@ -10,8 +10,9 @@
 #include <htslib/kseq.h>
 #include <htslib/kstring.h>
 #include <omp.h>
-#include <sdsl/bit_vectors.hpp>
-#include <sdsl/util.hpp>
+// #include <sdsl/bit_vectors.hpp>
+// #include <sdsl/util.hpp>
+#include "CustomBitvector.hpp"
 using namespace std;
 KSEQ_INIT(gzFile, gzread)
 
@@ -233,9 +234,12 @@ int main(int argc, char* argv[]) {
     unordered_set<uint64_t> solid_kmers;
     
     cerr << "Reading kmers from " << argv[2] << "." << endl;
-    sdsl::bit_vector bv_sd;
-    sdsl::load_from_file(bv_sd, argv[2]);
-    auto get_ones = sdsl::bit_vector::rank_1_type(&bv_sd)(bv_sd.size());
+    // sdsl::bit_vector bv_sd;
+    // sdsl::load_from_file(bv_sd, argv[2]);
+    // auto get_ones = sdsl::bit_vector::rank_1_type(&bv_sd)(bv_sd.size());
+    CustomBitvector bv_sd(1ULL<<(2*k));
+    bv_sd.load(argv[2]);
+    auto get_ones = bv_sd.count();
     
     cerr << "Got " << get_ones << " solid kmers." << endl;
     

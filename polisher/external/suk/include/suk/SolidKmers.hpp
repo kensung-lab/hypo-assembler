@@ -26,7 +26,8 @@
  */
 #pragma once
 
-#include <sdsl/bit_vectors.hpp>
+// #include <sdsl/bit_vectors.hpp>
+#include "CustomBitvector.hpp"
 
 namespace suk
 {
@@ -96,6 +97,7 @@ public:
      * Returns true if the bit-vector is set successfully.
      * */
     bool initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory);
+    bool initialise_from_file(const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory);
 
     /** Loads the bitvector from a previously stored file (Assumes k is the same) .
      * Returns true if the bit-vector is loaded successfully.
@@ -105,7 +107,7 @@ public:
     /** Stores the bitvector into a file with the given name. 
      * Returns true if the bit-vector is stored successfully.
      * */
-    inline bool store(std::string outfile) const {return sdsl::store_to_file(_bv, outfile);}
+    inline void store(std::string outfile) const {_bv.write(outfile);}
 
     /** Stores the kmers set in the bitvector (in text format) into a file with the given name. 
      * Returns true if the kmers are written successfully.
@@ -116,7 +118,7 @@ public:
      * kmer_id is the kmer in encoded form (2bits per base encoding).
      * Returns true if the kmer_id is set.
      * */
-    inline bool is_solid(UINT64 kmer_id) const {assert(kmer_id<_bv.size());return _bv[kmer_id];}
+    inline bool is_solid(UINT64 kmer_id) const {return _bv.at(kmer_id);}
 
     /** Checks whether a kmer (text/not-encoded format) is solid unique kmer. 
      * 
@@ -133,7 +135,7 @@ public:
 
 private:
     const UINT _k;
-    sdsl::bit_vector _bv;
+    CustomBitvector _bv;
     UINT64 _num_Solid_kmers;
 
     CutOffs find_cutoffs(const std::vector<size_t> & histArray);

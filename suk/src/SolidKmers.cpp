@@ -45,20 +45,14 @@ namespace suk
 {
 
 SolidKmers::SolidKmers(const UINT k) : 
-_k(k), _num_Solid_kmers(0),_bv(((1ULL<<(2*k))),0){}
+_k(k), _num_Solid_kmers(0),_bv(((1ULL<<(2*k)))){}
 
 
 bool SolidKmers::load(const std::string infile) {
-    if (sdsl::load_from_file(_bv, infile)) {
-        //_num_Solid_kmers = sdsl::sd_vector<>::rank_1_type(&_bv)(_bv.size());
-        _num_Solid_kmers = sdsl::bit_vector::rank_1_type(&_bv)(_bv.size());
-        assert(_bv.size() == ((1ULL<<(2*_k))));
-        return true;
-    }
-    else {
-        fprintf(stderr, "[SolidKmers] Error: Bit vector file could not be loaded: %s.\n",infile.c_str());
-    }
-    return false;
+    _bv.load(infile);
+    _num_Solid_kmers = _bv.count();
+    assert(_bv.size() == ((1ULL<<(2*_k))));
+    return true;
 }
 
 bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory) {
@@ -183,10 +177,6 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
     }
     monitor.stop("[SUK:KMC]: Kmers Histogram done. ");
     
-    std::ofstream of("/home/joshuac/fungi/kmer_hist.txt");
-    for(int i=0; i< cHIST_FREQ; i++) of << i << "\t" << histArray[i] << "\n";
-    of.close();     
-    
     /* Find cut offs */
     //monitor.start();
     CutOffs coffs = find_cutoffs(histArray);
@@ -221,8 +211,8 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
                     fwd_kmer = ((fwd_kmer << 2ULL) | b) & mask;
                     rc_kmer = (rc_kmer >> 2ULL) | (3ULL^b) << shift;
                 }
-                _bv[fwd_kmer] = 1;
-                _bv[rc_kmer] = 1;
+                _bv.assign(fwd_kmer, 1);
+                _bv.assign(rc_kmer, 1);
                 ++_num_Solid_kmers;
             }
         }
@@ -240,7 +230,7 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
     //monitor.stop("[SUK]: Clearing files. ");
 
     
-    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n",sdsl::bit_vector::rank_1_type(&_bv)(_bv.size())); 
+    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n", _bv.count()); 
     monitor.total("[SolidKmers]: Overall. ");
     return result;
 }
@@ -281,12 +271,6 @@ bool SolidKmers::initialise_from_file(const UINT32 threads, const UINT32 max_mem
     }
     monitor.stop("[SUK:KMC]: Kmers Histogram done. ");
     
-    std::ofstream of("/home/joshuac/kmer_hist.txt");
-    for(int i=0; i< cHIST_FREQ; i++) of << i << "\t" << histArray[i] << "\n";
-    of.close();     
-    
-    
-    
     /* Find cut offs */
     //monitor.start();
     CutOffs coffs = find_cutoffs(histArray);
@@ -321,8 +305,8 @@ bool SolidKmers::initialise_from_file(const UINT32 threads, const UINT32 max_mem
                     fwd_kmer = ((fwd_kmer << 2ULL) | b) & mask;
                     rc_kmer = (rc_kmer >> 2ULL) | (3ULL^b) << shift;
                 }
-                _bv[fwd_kmer] = 1;
-                _bv[rc_kmer] = 1;
+                _bv.assign(fwd_kmer, 1);
+                _bv.assign(rc_kmer, 1);
                 ++_num_Solid_kmers;
             }
         }
@@ -340,7 +324,7 @@ bool SolidKmers::initialise_from_file(const UINT32 threads, const UINT32 max_mem
     //monitor.stop("[SUK]: Clearing files. ");
 
     
-    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n",sdsl::bit_vector::rank_1_type(&_bv)(_bv.size())); 
+    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n", _bv.size()); 
     monitor.total("[SolidKmers]: Overall. ");
     return result;
 }
