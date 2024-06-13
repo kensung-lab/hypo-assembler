@@ -1,0 +1,6 @@
+[submodule "overlap/libs/sdsl-lite"]
+	path = overlap/libs/sdsl-lite
+	url = https://github.com/simongog/sdsl-lite
+[submodule "scaffold/libs/sdsl-lite"]
+	path = scaffold/libs/sdsl-lite
+	url = https://github.com/simongog/sdsl-lite

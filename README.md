@@ -4,178 +4,219 @@
 Hypo is a package of both polisher, capable of correcting draft genomes, and an assembler to assemble a diploid genome. It exploits unique genomic kmers to both selectively polish only segments of contigs and to increase mapping accuracy.
 
 ## Installation
-Hypo is only available for Unix-like platforms (Linux and MAC OS). Currently, we provide the option of installation from source with CMake and a Docker image.
-
+Hypo is only available for Unix-like platforms (Linux and MAC OS). Currently, we provide the option of installation from source with CMake.
 CmakeLists is provided in the project root folder. 
 
 ### Pre-requisites
-For installing from the source, the following requirements are assumed to be installed already (with path to their binaries available in $PATH).
+The following requirements are assumed to be installed (with path to their binaries available in $PATH).
 - Zlib
 - OpenMP
 - GCC (>=7.3)
-  * Following are the commands to update GCC (say to GCC 8) on an Ubuntu machine (from say GCC 5):
-  ```console
-    sudo apt-get update; sudo apt-get install build-essential software-properties-common -y;
-    sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y; sudo apt update; 
-    sudo apt install gcc-snapshot -y; sudo apt update
-    sudo apt install gcc-8 g++-8 -y; 
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 60 --slave /usr/bin/g++ g++ /usr/bin/g++-8
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5;
-  ```
-- [HTSLIB](https://github.com/samtools/htslib) (version >=1.16)
-  + If htslib version 1.16 or higher is not installed, we recommend using `install_htslib.sh` in the project folder to install it locally.
-
 - [KMC3](https://github.com/refresh-bio/KMC)
 - [minimap2](https://github.com/lh3/minimap2)
-- [FlyE](https://github.com/fenderglass/Flye)
 - [samtools](https://github.com/samtools/samtools)
+- [FlyE](https://github.com/fenderglass/Flye) (optional, if draft assembly is not provided)
+- [pysam](https://pysam.readthedocs.io/en/latest/installation.html)
+- [BioPython](https://biopython.org/wiki/Download)
 
+### Building
 
-To install and compile, use cmake to build i.e.
-
+First, you need to clone the repository recusrively (for the submodules)
 ```
-mkdir build
-cd build
-cmake ..
-make
+git clone --recursive https://github.com/kensung-lab/hypo-assembler
 ```
 
-If there are issues on building concerning htslib, run install_htslib.sh to fix out the htslib dependency, or put a fully built htslib on external/htslib.
+After cloning, the easiest way to run the pipeline is to run build_all.sh. This will write a run_all directory, from where the run can be easily executed.
+```
+./build_all.sh
+cd run_all
+```
 
-Docker image is available on dockerhub: https://hub.docker.com/r/jcsyd/hypo-assembler
-To run it, simply pull:
+The following optional options are available for build_all.sh
+```console
+ Usage: ./build_all.sh <args>
+ 
+** Optional parameters
+    -t <thread count>
+    The number of threads to run make
+    [Default] 10
+    
+    -n
+    If present, will run optimized for native (i.e. -march=native)
+    
+    -o <build directory>
+    Directory to put executables and scripts.
+    [Default] run_all
 ```
-docker pull jcsyd/hypo-assembler:v0.9
-```
+
 
 ### Usage
 
+Usage with run_all.sh is as follows:
+
 ```console
- Usage: hypo <args>
+ Usage: ./run_all.sh <args>
 
 ** Mandatory arguments
-    -1 or --short-read-1
+    -1 <short read file 1>
     The file containing the first of the short read input
     
-    -2 or --short-read-2
+    -2 <short read file 2>
     The file containing the pair of the short read input
     
-    -l or --long-read
+    -l <long reads file>
     The file containing long reads
 
 ** Optional parameters
-    -3 or --hic-read-1
-    The file containing the first of the hi-c read input
-    [Default] None
-    
-    -4 or --hic-read-2
-    The file containing the second of the hi-c read input
-    [Default] None
-    
-    -t or --threads
-    The number of threads to run (including FlyE and minimap2)
+    -t <thread count>
+    The number of threads to run
     [Default] 1
     
-    -w or --workdir
-    The working directory to put temporary files and results
-    [Default] $PWD/hypo_wd
+    -o <output prefix>
+    The prefix for the output file names. The outputs will be <prefix>_1.fa and <prefix>_2.fa
+    [Default] hypo
     
-    -F or --flye-path
-    The path to flye executable
-    [Default] flye (expected to find on $PATH)
-    
-    -M or --minimap2-path
-    The path to minimap2 executable
-    [Default] minimap2 (expected to find on $PATH)
-    
-    -S or --samtools-path
-    The path to samtools executable
-    [Default] samtools (expected to find on $PATH)
-    
-    -s or --size-ref
-    Estimated genome size
-    [Default] 3000000000
-    
-    -c or --coverage-short
-    Estimated coverage of the short reads
-    [Default] Estimated from reads
-    
-    -C or --coverage-long
-    Estimated coverage of the long reads
-    [Default] Estimated from reads
-    
-    -@ or --samtools-thread
-    The number of thread to use for samtools (will be used in parallel with the initial number of threads, (samtools -@)
-    [Default] 1
-    
-    -Z or --samtools-memory
-    The memory used by samtools (samtools -m)
-    [Default] 768M
-    
-    -X or --samtools-temp
-    The path for temporary files by samtools (samtools -T)
-    [Default] hypo_wd/short_read_initial and hypo_wd/long_read_initial
-    
-    -I or --debug
-    Turns on debug mode to print out temporary files. Not recommended due to high I/O requirements, unless there is an issue encountered.
-    [Default] Off
-    
-    -B or --long-align
-    Use long reads alignment files to speed up initial process.
+    -d <assembly draft>
+    The file containing the original draft. If not provided, FlyE will be run from the given long reads
     [Default] None
     
-    -b or --short-align
-    Use short reads alignment files to speed up initial process.
+    -B <long reads mapping to draft>
+    Mappings of the long reads to the original draft as provided in -d. If not provided, minimap2 will be run to align the long reads
     [Default] None
+    
+    -s <estimated size>
+    Estimated size of the assembled genome. K/M/G suffix accepted
+    [Default] 3G
+    
+    -T <tempdir>
+    Directory to write temporary files
+    [Default] temp
+    
+    -m <sortmem>
+    The memory used for each samtools sorting thread. Samtools will use number of threads * sortmem memory.
+    [Default] 1G
+    
+    -@ <sortthreads>
+    The threads used for each samtools sorting. Separate from the normal number of threads.
+    [Default] 10
+    
+    -M <kmcmem>
+    The max memory for KMC, in GB
+    [Default] 12
+    
+    -k <kmer length>
+    The length of solid kmers used in the method. Recommended is 17 for human genome.
+    [Default] 17
 ```
 
 ### Demo
 
 We have included a small demo data to test the installation in demo/
 
-To run the demo:
-
-#### Running demo with manual compilation
-
 For the puposes of this demo, the following external library is assumed:
 - [minimap2 2.26](https://github.com/lh3/minimap2/releases/tag/v2.26)
 - [FlyE 2.92](https://github.com/fenderglass/Flye/releases/tag/2.9.2)
 - [KMC 3.2.2](https://github.com/refresh-bio/KMC/releases/tag/v3.2.2)
 
-Assuming the above exact commands for compilation, hypo executable will be in build/bin/hypo
-After compilation, run the following command from the top directory:
-
+Assuming build_all.sh is already run:
 ```
-build/bin/hypo -1 demo/il1.fq -2 demo/il2.fq -l demo/nanopore.fq.gz -3 demo/hic1.fq -4 demo/hic2.fq -t 40 -s 1500000
-```
-
-This will run hypo-assembler on 40 threads. It is estimated to finish within 20 minutes, depending on how your setup.
-The resulting assembly are `hypo_wd/final_1.fa` and `hypo_wd/final_2.fa`.
-
-
-
-To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
-
-```
-diff hypo_wd/final_1.fa demo/expected_result/final_1.fa
-diff hypo_wd/final_2.fa demo/expected_result/final_2.fa 
+cd run_all
+./run_all.sh -1 ../demo/il1.fq -2 ../demo/il2.fq -l ../demo/ont.fq.gz -t 40
 ```
 
-If both commands don't output anything, then the program has run without issues.
+This will run hypo-assembler on 40 threads.
 
-#### Running demo with docker
+The outputs will be hypo_1.fa and hypo_2.fa in the run_all directory.
 
-Assuming the directory of the demo is /home/testing/hypo_assembler/demo and you want to output to /home/testing/hypo_wd, you can run the following command:
-
+To make sure the program runs properly, you can compare the output with the results in demo/expected_result/hypo_1.fa and demo/expected_result/hypo_2.fa, i.e.
 ```
-docker run -v /home/testing/hypo_assembler/demo:/inputs:ro -v /home/testing/hypo_wd:/output jcsyd/hypo-assembler:v0.9 -1 /inputs/il1.fq -2 /inputs/il2.fq -l /inputs/nanopore.fq.gz -t 40 -3 /inputs/hic1.fq -4 /inputs/hic2.fq -w /output -s 1500000
-```
-
-To make sure the program runs properly, you can compare the output with the results in demo/expected_result/final_1.fa and demo/expected_result/final_2.fa, i.e.
-
-```
-diff /home/testing/hypo_wd/final_1.fa /home/testing/hypo_assembler/demo/expected_result/final_1.fa
-diff /home/testing/hypo_wd/final_2.fa /home/testing/hypo_assembler/demo/expected_result/final_2.fa 
+diff hypo_1.fa ../demo/expected_result/hypo_1.fa
+diff hypo_2.fa ../demo/expected_result/hypo_2.fa
 ```
 
-If both commands don't output anything, then the program has run without issues.
+If both commands execute without any output, then the program works properly.
+
+### Running hypo-polisher
+
+We recommend running the full package of hypo-assembler with -d option to improve a quality of a draft genome. However, we also provide the option of running the polisher separate from the assembler.
+
+To run them, simply run the binary "hypo" built from the polisher directory.
+```
+Usage: hypo <args>
+
+ ** Mandatory args:
+	-r, --reads-short <str>
+	Input file name containing reads (in fasta/fastq format; can be compressed). A list of files containing file names in each line can be passed with @ prefix.
+
+	-d, --draft <str>
+	Input file name containing the draft contigs (in fasta/fastq format; can be compressed). 
+
+	-b, --bam-sr <str>
+	Input file name containing the alignments of short reads against the draft (in bam/sam format; must have CIGAR information). 
+
+	-c, --coverage-short <int>
+	Approximate mean coverage of the short reads. 
+
+	-s, --size-ref <str>
+	Approximate size of the genome (a number; could be followed by units k/m/g; e.g. 10m, 2.3g). 
+
+** Optional args:
+	-B, --bam-lr <str>
+	Input file name containing the alignments of long reads against the draft (in bam/sam format; must have CIGAR information). 
+	[Only Short reads polishing will be performed if this argument is not given]
+
+	-o, --output <str>
+	Output file name. 
+	[Default] hypo_<draft_file_name>.fasta in the working directory.
+
+ 	-t, --threads <int>
+	Number of threads. 
+	[Default] 1.
+
+ 	-p, --processing-size <int>
+	Number of contigs to be processed in one batch. Lower value means less memory usage but slower speed. 
+	[Default] All the contigs in the draft.
+
+ 	-m, --match-sr <int>
+	Score for matching bases for short reads. 
+	[Default] 5.
+
+ 	-x, --mismatch-sr <int>
+	Score for mismatching bases for short reads. 
+	[Default] -4.
+
+ 	-g, --gap-sr <int>
+	Gap penalty for short reads (must be negative). 
+	[Default] -8.
+
+ 	-M, --match-lr <int>
+	Score for matching bases for long reads. 
+	[Default] 3.
+
+ 	-X, --mismatch-lr <int>
+	Score for mismatching bases for long reads. 
+	[Default] -5.
+
+ 	-G, --gap-lr <int>
+	Gap penalty for long reads (must be negative). 
+	[Default] -4.
+
+ 	-n, --ned-th <int>
+	Threshold for Normalised Edit Distance of long arms allowed in a window (in %). Higher number means more arms allowed which may slow down the execution.
+	[Default] 20.
+
+ 	-q, --qual-map-th <int>
+	Threshold for mapping quality of reads. The reads with mapping quality below this threshold will not be taken into consideration. 
+	[Default] 2.
+
+ 	-i, --intermed
+	Store or use (if already exist) the intermediate files. 
+	[Currently, only Solid kmers are stored as an intermediate file.].
+
+ 	-h, --help
+	Print the usage. 
+```
+
+### Contact
+
+Other than raising issues in github, you can contact joshuac@comp.nus.edu.sg for specific issues.

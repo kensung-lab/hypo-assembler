@@ -1,2 +1,8 @@
-build/
-hypo_eval_wd/
+inputs/
+outputs/
+suk/build/
+polisher/build/
+scaffold/build/
+overlap/build/
+run/
+run_all/
