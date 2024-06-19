@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <iterator>
+#include <cstdint>
 
 class CustomBitvector {
     public:

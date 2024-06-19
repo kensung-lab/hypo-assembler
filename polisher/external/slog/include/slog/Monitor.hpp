@@ -52,11 +52,11 @@ public:
      * @brief Stops the timer and resets it.
 	 * Prints the elapsed time starting from the previous call of the function measure_start.
      */
-	std::string stop(const std::string& msg="");
+	std::string stop(const std::string& msg=std::string(""));
 	/*!
      * @brief Prints the elapsed time starting from the first call of the function measure_start.
      */
-	std::string total(const std::string& msg="Overall");
+	std::string total(const std::string& msg=std::string("Overall"));
 
 private:
     TP _start_tp;
