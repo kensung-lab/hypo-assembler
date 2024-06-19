@@ -21,6 +21,7 @@
  */
 #pragma once
 #include <chrono>
+#include <string>
 
 using TP = std::chrono::time_point<std::chrono::steady_clock>;
 
