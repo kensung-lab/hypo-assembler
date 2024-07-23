@@ -117,16 +117,20 @@ if [ "$debugmode" == "" ]; then
     echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
     ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
 else
-    echo "[SCAFFOLD: STEP 1] Finding scaffolds"
+    echo "[SCAFFOLD: STEP 1] Finding scaffolds <DEBUG>"
     echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
     ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt
 fi
 
-echo "[SCAFFOLD: STEP 2] Joining scaffolds"
-echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir > $tempdir/identity.txt"
-python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir > $tempdir/identity.txt
-echo "python join_scaffold.py $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir > $tempdir/identity2.txt"
-python join_scaffold.py $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir > $tempdir/identity2.txt
+if [ "$debugmode" == "" ]; then
+    echo "[SCAFFOLD: STEP 2] Joining scaffolds"
+    echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
+    python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt
+else
+    echo "[SCAFFOLD: STEP 2] Joining scaffolds <DEBUG>"
+    echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
+    python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir/debug_2.txt> $tempdir/identity.txt
+fi
 
 echo "[SCAFFOLD: STEP 3] Mapping long reads"
 echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
