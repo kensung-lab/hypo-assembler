@@ -142,8 +142,12 @@ samtools index -@ $threads $tempdir/map.sorted.bam
 echo "samtools index -@ $threads $tempdir/map2.sorted.bam"
 samtools index -@ $threads $tempdir/map2.sorted.bam
 
-echo "[SCAFFOLD: STEP 4] Finalization"
-echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1"
-python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1
-echo "python filter_scaffold.py $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2"
-python filter_scaffold.py $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2
+if [ "$debugmode" == "" ]; then
+    echo "[SCAFFOLD: STEP 4] Finalization"
+    echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2"
+    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2
+else
+    echo "[SCAFFOLD: STEP 4] Finalization"
+    echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2 debug_3.txt"
+    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2 $tempdir/debug_3.txt
+fi
