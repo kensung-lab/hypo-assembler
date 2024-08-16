@@ -45,20 +45,14 @@ namespace suk
 {
 
 SolidKmers::SolidKmers(const UINT k) : 
-_k(k), _num_Solid_kmers(0),_bv(((1ULL<<(2*k))),0){}
+_k(k), _num_Solid_kmers(0),_bv(((1ULL<<(2*k)))){}
 
 
 bool SolidKmers::load(const std::string infile) {
-    if (sdsl::load_from_file(_bv, infile)) {
-        //_num_Solid_kmers = sdsl::sd_vector<>::rank_1_type(&_bv)(_bv.size());
-        _num_Solid_kmers = sdsl::bit_vector::rank_1_type(&_bv)(_bv.size());
-        assert(_bv.size() == ((1ULL<<(2*_k))));
-        return true;
-    }
-    else {
-        fprintf(stderr, "[SolidKmers] Error: Bit vector file could not be loaded: %s.\n",infile.c_str());
-    }
-    return false;
+    _bv.load(infile);
+    _num_Solid_kmers = _bv.count();
+    assert(_bv.size() == ((1ULL<<(2*_k))));
+    return true;
 }
 
 bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory) {
@@ -82,11 +76,15 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
     std::string kmc_output_path = tmp_directory + "/kmc_result.res";
     // create the temp file for filenames
     std::string kmc_inputs_path = tmp_directory + "/inputs.txt";
+    
+    
     std::ofstream ofs(kmc_inputs_path.c_str());
     for(auto & i : filenames) {
         ofs << i << "\n";
     }
     ofs.close();
+    
+    
     kmc_inputs_path = "@" + kmc_inputs_path;
     
     std::string file_type = "-fq";
@@ -143,17 +141,142 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
     
     std::vector<size_t> histArray(cHIST_FREQ + 1);
     
+    uint64 asd = 0;
+    /*
+    kmer_object->from_string("GCAACACGGCGTATGCT");
+    kmc_database.CheckKmer(*kmer_object, asd);
+    
+    std::cout << asd << std::endl;
+    
+    kmer_object->from_string("CAACACGGCGTATGCTA");
+    kmc_database.CheckKmer(*kmer_object, asd);
+    
+    std::cout << asd << std::endl;
+    
+    kmer_object->from_string("AACACGGCGTATGCTAT");
+    kmc_database.CheckKmer(*kmer_object, asd);
+    
+    std::cout << asd << std::endl;
+    
+    kmer_object->from_string("ACACGGCGTATGCTATT");
+    kmc_database.CheckKmer(*kmer_object, asd);
+    
+    std::cout << asd << std::endl;
+    
+    kmer_object->from_string("CACGGCGTATGCTATTC");
+    kmc_database.CheckKmer(*kmer_object, asd);
+    
+    std::cout << asd << std::endl;
+    
+    return 0;
+    */
     //UINT64 counter;
     uint64 counter;
     while (kmc_database.ReadNextKmer(*kmer_object, counter)) {
         if(counter <= cHIST_FREQ) histArray[counter]++;
     }
-    monitor.stop("[SUK:KMC]: Kmers Histogram done. ");     
+    monitor.stop("[SUK:KMC]: Kmers Histogram done. ");
     
     /* Find cut offs */
     //monitor.start();
     CutOffs coffs = find_cutoffs(histArray);
     //monitor.stop("[SUK]: Finding cutoffs. ");
+    
+    // set bit-vector
+    //monitor.start();
+    UINT64 shift = 2 * (_k - 1);
+    UINT64 mask = (1ULL<<2*_k) - 1;
+    if(!kmc_database.RestartListing()) {
+        fprintf(stderr, "Failed to restart KMC listing.\n");
+        return false;
+    }
+    
+    while (kmc_database.ReadNextKmer(*kmer_object, counter)) {
+        if(counter >= coffs.lower && counter <= coffs.upper) {
+            bool valid = true;
+            if (exclude_hp && (kmer_object->get_num_symbol(0)==kmer_object->get_num_symbol(1) || kmer_object->get_num_symbol(_k-1)==kmer_object->get_num_symbol(_k-2))) { // HP at terminals; 
+                valid = false;
+            }
+            if (valid) {
+                // fprintf(stderr, "%u %u %u %u\n", kmer_object->get_num_symbol(0), kmer_object->get_num_symbol(1), kmer_object->get_num_symbol(_k-1), kmer_object->get_num_symbol(_k-2));
+                UINT64 fwd_kmer = 0;
+                UINT64 rc_kmer = 0;
+                for (UINT c = 0; c < _k; c++) {
+                    UINT64 b = kmer_object->get_num_symbol(c);//cNt4Table[BYTE(c)];
+                    if (b > 3) {
+                        fprintf(stderr, "[SolidKmers] Error: Wrong base (Can not pack in 2 bits): Base %c in the kmer %s is not A, C, G, or T !\n",c,kmer_object->to_string().c_str());
+                        result = false;
+                        break;
+                    }
+                    fwd_kmer = ((fwd_kmer << 2ULL) | b) & mask;
+                    rc_kmer = (rc_kmer >> 2ULL) | (3ULL^b) << shift;
+                }
+                _bv.assign(fwd_kmer, 1);
+                _bv.assign(rc_kmer, 1);
+                ++_num_Solid_kmers;
+            }
+        }
+    }
+    //monitor.stop("[SUK]: Filling bitvectors. ");
+
+    //monitor.start();
+    kmc_inputs_path = kmc_inputs_path.substr(1);
+    std::string kmc_output_path_pre = kmc_output_path + ".kmc_pre";
+    std::string kmc_output_path_suf = kmc_output_path + ".kmc_suf";
+    unlink(kmc_inputs_path.c_str());
+    //unlink(kmc_output_path_pre.c_str());
+    //unlink(kmc_output_path_suf.c_str());
+    rmdir(tmp_kmc_directory.c_str());
+    //monitor.stop("[SUK]: Clearing files. ");
+
+    
+    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n", _bv.count()); 
+    monitor.total("[SolidKmers]: Overall. ");
+    return result;
+}
+
+bool SolidKmers::initialise_from_file(const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory) {
+    bool result = true;
+    slog::Monitor monitor;
+    monitor.start();
+    // create tmp directory for KMC and KMC results
+    std::string tmp_kmc_directory = tmp_directory + "/kmc_tmp";
+    std::string kmc_output_path = tmp_directory + "/kmc_result.res";
+    std::string kmc_inputs_path = tmp_directory + "/inputs.txt";
+    
+    std::cout << "Open database" << std::endl;
+    
+    monitor.start();
+    const UINT cHIST_FREQ = (coverage*4U);
+    CKMCFile kmc_database;
+    if(!kmc_database.OpenForListing(kmc_output_path)) {
+        fprintf(stderr, "Failed to open KMC database.\n");
+        return false;
+    }
+    
+    /* Construct histogram */
+    // hist0 is total kmers; hist[1] is total distinct kmers (F0); from 2, hist[i] represents number of kmers with freq=i-1
+    CKMCFileInfo kmc_info;
+    kmc_database.Info(kmc_info);
+    
+    //vector of pair kmer, counter objects
+    CKmerAPI * kmer_object = new CKmerAPI(kmc_info.kmer_length);
+    
+    std::vector<size_t> histArray(cHIST_FREQ + 1);
+    
+    //UINT64 counter;
+    uint64 counter;
+    while (kmc_database.ReadNextKmer(*kmer_object, counter)) {
+        if(counter <= cHIST_FREQ) histArray[counter]++;
+    }
+    monitor.stop("[SUK:KMC]: Kmers Histogram done. ");
+    
+    /* Find cut offs */
+    //monitor.start();
+    CutOffs coffs = find_cutoffs(histArray);
+    //monitor.stop("[SUK]: Finding cutoffs. ");
+    
+    return false;
     
     // set bit-vector
     //monitor.start();
@@ -182,8 +305,8 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
                     fwd_kmer = ((fwd_kmer << 2ULL) | b) & mask;
                     rc_kmer = (rc_kmer >> 2ULL) | (3ULL^b) << shift;
                 }
-                _bv[fwd_kmer] = 1;
-                _bv[rc_kmer] = 1;
+                _bv.assign(fwd_kmer, 1);
+                _bv.assign(rc_kmer, 1);
                 ++_num_Solid_kmers;
             }
         }
@@ -201,10 +324,11 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
     //monitor.stop("[SUK]: Clearing files. ");
 
     
-    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n",sdsl::bit_vector::rank_1_type(&_bv)(_bv.size())); 
+    fprintf(stdout, "[SolidKmers] Info: Number of solid kmers found: %lu\n", _bv.size()); 
     monitor.total("[SolidKmers]: Overall. ");
     return result;
 }
+
 
 
 bool SolidKmers::dump_txt(const std::string ofile) {
@@ -216,21 +340,23 @@ bool SolidKmers::dump_txt(const std::string ofile) {
     UINT64 mask = (1ULL<<2*_k) - 1;
     UINT64 bit_mask = UINT64(0x03);
     for (UINT64 i=0; i<_bv.size(); ++i) {
-        UINT64 kid = i & mask;
-        std::string kmer;
-        std::string rckmer;
-        kmer.resize(_k,'N');
-        rckmer.resize(_k,'N');
-        for (INT j=_k-1; j >= 0; --j) {
-            char c = cCode[kid & bit_mask];
-            char rc = cRCCode[kid & bit_mask];
-            kmer[j] = c;
-            rckmer[_k-1-j] = rc;            
-            kid  = kid >> 2ULL;
-        }
-        // check if canonical
-        if (kmer.compare(rckmer) <= 0) {
-            ofs << kmer << "\n";
+        if(_bv[i]) {
+            UINT64 kid = i & mask;
+            std::string kmer;
+            std::string rckmer;
+            kmer.resize(_k,'N');
+            rckmer.resize(_k,'N');
+            for (INT j=_k-1; j >= 0; --j) {
+                char c = cCode[kid & bit_mask];
+                char rc = cRCCode[kid & bit_mask];
+                kmer[j] = c;
+                rckmer[_k-1-j] = rc;            
+                kid  = kid >> 2ULL;
+            }
+            // check if canonical
+            if (kmer.compare(rckmer) <= 0) {
+                ofs << kmer << "\n";
+            }
         }
     }
     ofs.close();
@@ -354,10 +480,14 @@ CutOffs SolidKmers::find_cutoffs(const std::vector<size_t> & histArray) {
             }
         }
     }
-
-
+    
+    //coffs.err = 200;
+    //coffs.lower = 200;
+    //coffs.upper = 1500;
+    //coffs.mean = 960;
     fprintf(stdout, "[SolidKmers] Info: Error-threshold freq: %u, Lower-threshold freq: %u, Upper-threshold freq: %u, Mean-coverage: %u\n",coffs.err,coffs.lower,coffs.upper,coffs.mean); 
-
+    
+    
     return coffs;
     
 }

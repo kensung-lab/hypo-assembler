@@ -32,16 +32,13 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build all libraries as shared")
 # Source files
 set(LIBSOURCES 
     ${PROJECT_SOURCE_DIR}/include/suk/SolidKmers.hpp
+    ${PROJECT_SOURCE_DIR}/include/suk/CustomBitvector.hpp
     ${PROJECT_SOURCE_DIR}/src/SolidKmers.cpp
 )
 
 # Check Dependencies
 find_package (ZLIB REQUIRED)
 
-if (NOT TARGET sdsl)
-    set(ENV{BUILD_PORTABLE} 1) 
-    add_subdirectory(external/sdsl-lite EXCLUDE_FROM_ALL)    
-endif()
 if (NOT TARGET slog)
     add_subdirectory(external/slog EXCLUDE_FROM_ALL)
 endif() 
@@ -58,7 +55,7 @@ set_target_properties(suk
     PROPERTIES
     VERSION ${suk_VERSION}
     SOVERSION ${suk_VERSION})
-target_link_libraries(suk sdsl slog kmc_api ${ZLIB_LIBRARIES})
+target_link_libraries(suk slog kmc_api ${ZLIB_LIBRARIES})
 
 # Create target 'install' for installing libraries.
 install(TARGETS suk DESTINATION ${CMAKE_INSTALL_LIBDIR})

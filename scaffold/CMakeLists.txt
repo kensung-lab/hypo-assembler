@@ -44,6 +44,11 @@ find_package(ZLIB REQUIRED)
 # Add CXX flags
 set (CMAKE_CXX_FLAGS "-pthread ${CMAKE_CXX_FLAGS} -O3")
 
+set(LIBSOURCES 
+    ${PROJECT_SOURCE_DIR}/CustomBitvector.hpp
+    ${PROJECT_SOURCE_DIR}/scaffold.cpp
+)
+
 add_executable(find_scaffold scaffold.cpp)
 target_link_libraries(find_scaffold hts z sdsl OpenMP::OpenMP_CXX)
 

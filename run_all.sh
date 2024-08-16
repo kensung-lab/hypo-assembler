@@ -155,14 +155,14 @@ fi
 echo "[STEP 1] Getting solid kmers" | tee -a $tempdir/run.log
 echo $reads1 > $tempdir/shorts.txt
 echo $reads2 >> $tempdir/shorts.txt
-./suk -k 17 -i @"$tempdir"/shorts.txt -t $threads -m $kmcmem -e -w $tempdir/suk_kmc -o $tempdir/SUK 2>&1 | tee $tempdir/suk.log
+./suk -k $kmerlen -i @"$tempdir"/shorts.txt -t $threads -m $kmcmem -e -w $tempdir/suk_kmc -o $tempdir/SUK 2>&1 | tee $tempdir/suk.log
 # mv SUK_k17.bv $tempdir/SUK_k17.bv
 
 echo "[STEP 2] Scanning misjoin" | tee -a $tempdir/run.log
 python scan_misjoin.py $draft $longbam $tempdir/misjoin.fa 2>&1 | tee -a $tempdir/misjoin.log
 
 echo "[STEP 3] Finding overlaps" | tee -a $tempdir/run.log
-./run_overlap.sh -k $tempdir/SUK_k17.bv -i $tempdir/misjoin.fa -l $longreads -t $threads -o $tempdir/overlap -T $tempdir/overlap_temp 2>&1 | tee -a $tempdir/overlap.log
+./run_overlap.sh -k $tempdir/SUK_k$kmerlen.bv -i $tempdir/misjoin.fa -l $longreads -t $threads -o $tempdir/overlap -T $tempdir/overlap_temp 2>&1 | tee -a $tempdir/overlap.log
 
 echo "[STEP 4] Realignment for polishing" | tee -a $tempdir/run.log
 minimap2 -I 64G -ax map-ont -t $threads $tempdir/overlap.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/overlap_long.bam
@@ -177,9 +177,9 @@ fi
 
 echo "[STEP 6] Scaffolding" | tee -a $tempdir/run.log
 if [ "$debugmode" == "" ]; then
-    ./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -I $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold -T $tempdir 2>&1 | tee $tempdir/scaffold.log
+    ./run_scaffold.sh -k $tempdir/SUK_k$kmerlen.bv -i $tempdir/polished_1.fa -I $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold -T $tempdir 2>&1 | tee $tempdir/scaffold.log
 else
-    ./run_scaffold.sh -k $tempdir/SUK_k17.bv -i $tempdir/polished_1.fa -I $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold -T $tempdir -D 2>&1 | tee $tempdir/scaffold.log
+    ./run_scaffold.sh -k $tempdir/SUK_k$kmerlen.bv -i $tempdir/polished_1.fa -I $tempdir/polished_2.fa -l $longreads -t $threads -o $tempdir/scaffold -T $tempdir -D 2>&1 | tee $tempdir/scaffold.log
 fi
 cp $tempdir/scaffold_1.fa ${outputpref}_1.fa
 cp $tempdir/scaffold_2.fa ${outputpref}_2.fa

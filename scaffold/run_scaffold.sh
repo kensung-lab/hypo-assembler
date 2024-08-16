@@ -114,23 +114,23 @@ echo "Output: $prefix.fa"
 
 if [ "$debugmode" == "" ]; then
     echo "[SCAFFOLD: STEP 1] Finding scaffolds"
-    echo "./find_scaffold $kmerlen $solids $contigs $threads $filter > $tempdir/scaffold.txt"
-    ./find_scaffold $kmerlen $solids $contigs $threads $filter > $tempdir/scaffold.txt
-    echo "./find_scaffold $kmerlen $solids $contigs2 $threads $filter > $tempdir/scaffold2.txt"
-    ./find_scaffold $kmerlen $solids $contigs2 $threads $filter > $tempdir/scaffold2.txt
+    echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
+    ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
 else
-    echo "[SCAFFOLD: STEP 1] Finding scaffolds"
-    echo "./find_scaffold $kmerlen $solids $contigs $threads $filter $tempdir/debug_1.txt > $tempdir/scaffold.txt"
-    ./find_scaffold $kmerlen $solids $contigs $threads $filter $tempdir/debug_1.txt > $tempdir/scaffold.txt
-    echo "./find_scaffold $kmerlen $solids $contigs2 $threads $filter $tempdir/debug_2.txt > $tempdir/scaffold2.txt"
-    ./find_scaffold $kmerlen $solids $contigs2 $threads $filter $tempdir/debug_2.txt > $tempdir/scaffold2.txt
+    echo "[SCAFFOLD: STEP 1] Finding scaffolds <DEBUG>"
+    echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
+    ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt
 fi
 
-echo "[SCAFFOLD: STEP 2] Joining scaffolds"
-echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir > $tempdir/identity.txt"
-python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir > $tempdir/identity.txt
-echo "python join_scaffold.py $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir > $tempdir/identity2.txt"
-python join_scaffold.py $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir > $tempdir/identity2.txt
+if [ "$debugmode" == "" ]; then
+    echo "[SCAFFOLD: STEP 2] Joining scaffolds"
+    echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
+    python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt
+else
+    echo "[SCAFFOLD: STEP 2] Joining scaffolds <DEBUG>"
+    echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
+    python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir/debug_2.txt> $tempdir/identity.txt
+fi
 
 echo "[SCAFFOLD: STEP 3] Mapping long reads"
 echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
@@ -142,8 +142,12 @@ samtools index -@ $threads $tempdir/map.sorted.bam
 echo "samtools index -@ $threads $tempdir/map2.sorted.bam"
 samtools index -@ $threads $tempdir/map2.sorted.bam
 
-echo "[SCAFFOLD: STEP 4] Finalization"
-echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1"
-python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1
-echo "python filter_scaffold.py $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2"
-python filter_scaffold.py $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2
+if [ "$debugmode" == "" ]; then
+    echo "[SCAFFOLD: STEP 4] Finalization"
+    echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2"
+    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2
+else
+    echo "[SCAFFOLD: STEP 4] Finalization"
+    echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2 debug_3.txt"
+    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2 $tempdir/debug_3.txt
+fi
