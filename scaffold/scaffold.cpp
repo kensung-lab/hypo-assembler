@@ -476,6 +476,10 @@ int main(int argc, char* argv[]) {
             
             // first overlapping part is from s_1 e_1 to s_2 e_2
             
+            #pragma omp critical
+            {
+                out_debug << best_contig_s1 << " " << best_contig_e1 << " " << best_contig_s2 << " " << " " << best_contig_e2 << " "  << best_score << " " << best_orientation << endl;
+            }
             
             results.push_back(make_tuple(best_contig_s1, best_contig_e1, best_contig_s2, best_contig_e2, best_score, best_orientation));
             
@@ -733,6 +737,10 @@ int main(int argc, char* argv[]) {
             
             // first overlapping part is from s_1 e_1 to s_2 e_2
             
+            #pragma omp critical
+            {
+                out_debug << best_contig_s1 << " " << best_contig_e1 << " " << best_contig_s2 << " " << " " << best_contig_e2 << " "  << best_score << " " << best_orientation << endl;
+            }
             
             results.push_back(make_tuple(best_contig_s1, best_contig_e1, best_contig_s2, best_contig_e2, best_score, best_orientation));
             
