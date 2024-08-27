@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e -o pipefail
+
 usage (){
 echo "  -k <solids>    the list of solid kmers in bitvector format                                     [          required ]"
 echo "  -i <contigs>   the contigs to join in fasta format                                         [          required ]"
