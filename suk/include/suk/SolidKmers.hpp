@@ -96,7 +96,7 @@ public:
      * tmp_directory is the temporary directory for KMC to use, and also to put KMC output in
      * Returns true if the bit-vector is set successfully.
      * */
-    bool initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory);
+    bool initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory, const bool debug_mode);
     bool initialise_from_file(const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory);
 
     /** Loads the bitvector from a previously stored file (Assumes k is the same) .

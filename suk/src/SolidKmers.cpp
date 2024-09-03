@@ -55,7 +55,7 @@ bool SolidKmers::load(const std::string infile) {
     return true;
 }
 
-bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory) {
+bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UINT32 threads, const UINT32 max_memory, const UINT32 coverage, const bool exclude_hp, const std::string tmp_directory, const bool debug_mode) {
     if(filenames.size() == 0) {
         fprintf(stderr, "[SolidKmers] Error: Empty filenames.\n");
         return false;
@@ -177,6 +177,12 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
     }
     monitor.stop("[SUK:KMC]: Kmers Histogram done. ");
     
+    if(debug_mode) {
+        std::ofstream histogram_output(tmp_directory + "/kmer_hist.txt");
+        for(size_t i = 0; i < histArray.size(); i++) histogram_output << i << "\t" << histArray[i] << "\n";
+        histogram_output.close();
+    }
+    
     /* Find cut offs */
     //monitor.start();
     CutOffs coffs = find_cutoffs(histArray);
@@ -271,13 +277,15 @@ bool SolidKmers::initialise_from_file(const UINT32 threads, const UINT32 max_mem
     }
     monitor.stop("[SUK:KMC]: Kmers Histogram done. ");
     
+    std::ofstream histogram_output("kmer_hist.txt");
+    for(size_t i = 0; i < histArray.size(); i++) histogram_output << i << "\t" << histArray[i] << "\n";
+    histogram_output.close();
+    
     /* Find cut offs */
     //monitor.start();
     CutOffs coffs = find_cutoffs(histArray);
     //monitor.stop("[SUK]: Finding cutoffs. ");
-    
-    return false;
-    
+
     // set bit-vector
     //monitor.start();
     UINT64 shift = 2 * (_k - 1);
