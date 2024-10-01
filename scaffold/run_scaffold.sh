@@ -117,12 +117,12 @@ echo "Output: $prefix.fa"
 if [ "$debugmode" == "" ]; then
     echo "[SCAFFOLD: STEP 1] Finding scaffolds"
     echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
-    ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
+    ./find_scaffold $kmerlen $solids $contigs $contigs2 $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
 else
     touch $tempdir/runscaffold.log
     echo "[SCAFFOLD: STEP 1] Finding scaffolds <DEBUG>"
     echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
-    ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
+    ./find_scaffold $kmerlen $solids $contigs $contigs2 $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
 fi
 
 if [ "$debugmode" == "" ]; then
@@ -162,11 +162,11 @@ tempdir=$tempdir/iter2
 if [ "$debugmode" == "" ]; then
     echo "[SCAFFOLD: STEP 1-2] Finding scaffolds"
     echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
-    ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
+    ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
 else
     echo "[SCAFFOLD: STEP 1-2] Finding scaffolds <DEBUG>"
     echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
-    ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
+    ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
 fi
 
 if [ "$debugmode" == "" ]; then

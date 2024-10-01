@@ -4,6 +4,7 @@
 #include <chrono>
 #include <unordered_set>
 #include <unordered_map>
+#include <map>
 #include <tuple>
 #include <vector>
 #include <algorithm>
@@ -37,7 +38,7 @@ unsigned char seq_nt4_table[256] = {
 
 int main(int argc, char* argv[]) {
     if(argc < 8) {
-        cerr << "Usage: " << argv[0] << " <k> <kmers input> <contigs 1 fasta> <contigs 2 fasta> <output 1> <output 2> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)> <optional: debug_output>" << endl;
+        cerr << "Usage: " << argv[0] << " <k> <kmers input> <contigs 1 fasta> <contigs 2 fasta> <long reads> <output 1> <output 2> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)> <optional: debug_output>" << endl;
         return 1;
     }
     cerr << "Command: ";
@@ -46,9 +47,9 @@ int main(int argc, char* argv[]) {
     
     ofstream out_debug;
     
-    if(argc > 9) {
+    if(argc > 10) {
         try {
-            out_debug.open(argv[9]);
+            out_debug.open(argv[10]);
         } catch(exception const &e) {
             cerr << "Can't open file" << endl;
             cerr << e.what() << endl;
@@ -59,14 +60,14 @@ int main(int argc, char* argv[]) {
     
     int thread_count = 1;
     try {
-        thread_count = stoi(argv[7]);
+        thread_count = stoi(argv[8]);
     } catch(exception const &e) {
         cerr << "Thread count need to be int. Defaults to 1" << endl;
     }
     
     int remove_dupe = 0;
     try {
-        remove_dupe = stoi(argv[8]);
+        remove_dupe = stoi(argv[9]);
     } catch(exception const &e) {
         cerr << "Remove > 2 solids defaults to 0 (no)." << endl;
     }
@@ -156,9 +157,45 @@ int main(int argc, char* argv[]) {
         }
     }
     
+    cerr << "Processing reads from " << argv[5] << "." << endl;
+    fp = gzopen(argv[5], "r");
+    seq = kseq_init(fp);
+    
+    map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
+    uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
+    while((l = kseq_read(seq)) >= 0) {
+        string read_name = seq->name.s;
+        int count_not_N = 0;
+        vector<uint64_t> current_solids;
+        for(size_t i = 0; i < seq->seq.l; i++) {
+            int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
+            if(c < 4) {
+                kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
+                kmer[1] = (kmer[1] >> 2ull) | (3ULL^c) << shift1; // reverse k-mer
+                count_not_N++;
+                int z = kmer[0] < kmer[1] ? 0 : 1;
+                if(count_not_N >= k) {
+                    if(bv_sd[kmer[z]]) {
+                        current_solids.push_back(kmer[z]);
+                    }
+                }
+            } else {
+                count_not_N = 0;
+            }
+        }
+        for(size_t i = 0; i < current_solids.size(); i++) {
+            for(size_t j = i + 1; j < current_solids.size(); j++) {
+                minkmer = current_solids[i] < current_solids[j] ? current_solids[i] : current_solids[j];
+                maxkmer = current_solids[i] < current_solids[j] ? current_solids[j] : current_solids[i];
+                matching_solids[make_tuple(minkmer, maxkmer)]++;
+            }
+        }
+    }
+    
+    
     cerr << "Finding scaffolds" << endl;
     
-    ofstream output1(argv[5]);
+    ofstream output1(argv[6]);
     
     // initialize ordering based on the solid kmers count
     vector<size_t> ordering;
@@ -178,15 +215,15 @@ int main(int argc, char* argv[]) {
         int best_orientation = -1;
         
         // vector of all matches instead of keeping one
-        vector<vector<tuple<uint64_t, uint64_t> > > match_fwd;
-        vector<vector<tuple<uint64_t, uint64_t> > > match_rev;
+        vector<vector<tuple<uint64_t, uint64_t, uint64_t> > > match_fwd;
+        vector<vector<tuple<uint64_t, uint64_t, uint64_t> > > match_rev;
         
         
         for(int j_idx = 0; j_idx < contig_names.size(); j_idx++) {
             int j = ordering[j_idx];
             
-            vector<tuple<uint64_t, uint64_t> > solid_matches_forward;
-            vector<tuple<uint64_t, uint64_t> > solid_matches_reverse;
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_forward;
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_reverse;
             
             
             if(i == j) {
@@ -203,8 +240,8 @@ int main(int argc, char* argv[]) {
                 if(current_associated != contig_solids[j].end()) {
                     for(auto & pos : content.second) {
                         for(auto & pos2 : current_associated->second) {
-                            if(get<0>(pos) == get<0>(pos2)) solid_matches_forward.push_back(make_tuple(get<1>(pos), get<1>(pos2)));
-                            else solid_matches_reverse.push_back(make_tuple(get<1>(pos), get<1>(pos2)));
+                            if(get<0>(pos) == get<0>(pos2)) solid_matches_forward.push_back(make_tuple(get<1>(pos), get<1>(pos2), current_key));
+                            else solid_matches_reverse.push_back(make_tuple(get<1>(pos), get<1>(pos2), current_key));
                         }
                     }
                 }
@@ -229,8 +266,8 @@ int main(int argc, char* argv[]) {
         for(int j_idx = 0; j_idx < contig_names.size(); j_idx++) {
             int j = new_ordering[j_idx];
             
-            vector<tuple<uint64_t, uint64_t> > solid_matches_forward = match_fwd[j];
-            vector<tuple<uint64_t, uint64_t> > solid_matches_reverse = match_rev[j];
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_forward = match_fwd[j];
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_reverse = match_rev[j];
             
             #pragma omp critical 
             {
@@ -362,6 +399,16 @@ int main(int argc, char* argv[]) {
                             if(score_reverse[it2] + 1 > score_reverse[it]) {
                                 score_reverse[it] = score_reverse[it2] + 1;
                                 pred_reverse[it] = it2;
+                                
+                                // adjust score by read solid kmer support
+                                
+                                tempkmer1 = get<2>(solid_matches_reverse[it]);
+                                tempkmer2 = get<2>(solid_matches_reverse[it2]);
+                                
+                                minkmer = tempkmer1 < tempkmer2 ? tempkmer1 : tempkmer2;
+                                maxkmer = tempkmer1 < tempkmer2 ? tempkmer2 : tempkmer1;
+                                
+                                score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
                             }
                         }
                     }
@@ -485,7 +532,7 @@ int main(int argc, char* argv[]) {
     
     cerr << "Finding scaffolds" << endl;
     
-    ofstream output2(argv[6]);
+    ofstream output2(argv[7]);
     
     // initialize ordering based on the solid kmers count
     ordering.clear();
@@ -505,15 +552,15 @@ int main(int argc, char* argv[]) {
         int best_orientation = -1;
         
         // vector of all matches instead of keeping one
-        vector<vector<tuple<uint64_t, uint64_t> > > match_fwd;
-        vector<vector<tuple<uint64_t, uint64_t> > > match_rev;
+        vector<vector<tuple<uint64_t, uint64_t, uint64_t> > > match_fwd;
+        vector<vector<tuple<uint64_t, uint64_t, uint64_t> > > match_rev;
         
         
         for(int j_idx = 0; j_idx < contig_names.size(); j_idx++) {
             int j = ordering[j_idx];
             
-            vector<tuple<uint64_t, uint64_t> > solid_matches_forward;
-            vector<tuple<uint64_t, uint64_t> > solid_matches_reverse;
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_forward;
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_reverse;
             
             
             if(i == j) {
@@ -530,8 +577,8 @@ int main(int argc, char* argv[]) {
                 if(current_associated != contig_solids[j].end()) {
                     for(auto & pos : content.second) {
                         for(auto & pos2 : current_associated->second) {
-                            if(get<0>(pos) == get<0>(pos2)) solid_matches_forward.push_back(make_tuple(get<1>(pos), get<1>(pos2)));
-                            else solid_matches_reverse.push_back(make_tuple(get<1>(pos), get<1>(pos2)));
+                            if(get<0>(pos) == get<0>(pos2)) solid_matches_forward.push_back(make_tuple(get<1>(pos), get<1>(pos2), current_key));
+                            else solid_matches_reverse.push_back(make_tuple(get<1>(pos), get<1>(pos2), current_key));
                         }
                     }
                 }
@@ -556,8 +603,8 @@ int main(int argc, char* argv[]) {
         for(int j_idx = 0; j_idx < contig_names.size(); j_idx++) {
             int j = new_ordering[j_idx];
             
-            vector<tuple<uint64_t, uint64_t> > solid_matches_forward = match_fwd[j];
-            vector<tuple<uint64_t, uint64_t> > solid_matches_reverse = match_rev[j];
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_forward = match_fwd[j];
+            vector<tuple<uint64_t, uint64_t, uint64_t> > solid_matches_reverse = match_rev[j];
             
             #pragma omp critical 
             {
@@ -689,6 +736,16 @@ int main(int argc, char* argv[]) {
                             if(score_reverse[it2] + 1 > score_reverse[it]) {
                                 score_reverse[it] = score_reverse[it2] + 1;
                                 pred_reverse[it] = it2;
+                                
+                                // adjust score by read solid kmer support
+                                
+                                tempkmer1 = get<2>(solid_matches_reverse[it]);
+                                tempkmer2 = get<2>(solid_matches_reverse[it2]);
+                                
+                                minkmer = tempkmer1 < tempkmer2 ? tempkmer1 : tempkmer2;
+                                maxkmer = tempkmer1 < tempkmer2 ? tempkmer2 : tempkmer1;
+                                
+                                score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
                             }
                         }
                     }
@@ -739,7 +796,8 @@ int main(int argc, char* argv[]) {
             results.push_back(make_tuple(best_contig_s1, best_contig_e1, best_contig_s2, best_contig_e2, best_score, best_orientation));
             
             for(int am = 0; am < all_matches.size(); am++) if(get<4>(all_matches[am]) > best_score / 10) results.push_back(all_matches[am]);
-        }    
+        }
+        
         
         #pragma omp critical 
         {
@@ -747,7 +805,7 @@ int main(int argc, char* argv[]) {
                 tuple<int, int, int, int, int, int> result;
                 for(int zz = 0; zz < results.size(); zz++) {
                     result = results[zz];
-                    output2 << contig_names[i] << "\t" << get<0>(result) << "\t" << get<1>(result) << "\t" << contig_names[best_contig_match] << "\t" << get<2>(result) << "\t" << get<3>(result) << "\t" << get<4>(result) << "\t" << get<5>(result) << "\t";
+                    output1 << contig_names[i] << "\t" << get<0>(result) << "\t" << get<1>(result) << "\t" << contig_names[best_contig_match] << "\t" << get<2>(result) << "\t" << get<3>(result) << "\t" << get<4>(result) << "\t" << get<5>(result) << "\t";
                     if(zz == 0) cout << "P" << endl;
                     else cout << "EXT" << endl;
                 } 
