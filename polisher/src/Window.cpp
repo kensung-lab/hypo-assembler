@@ -20,6 +20,7 @@
  * It contains the functionality for POA.
  */
 #include <cmath>
+#include <algorithm>
 #include <unordered_map>
 #include "Window.hpp"
 
@@ -39,9 +40,25 @@ namespace hypo
         }
         _alignment_engines.shrink_to_fit();
         _alignment_engines_long.shrink_to_fit();
-    } 
-
+    }
+    
+bool Window::compare_arm_sequence(const PackedSeq<2> & left, const PackedSeq<2> & right) {
+    if(left.get_seq_size() != right.get_seq_size()) {
+        return left.get_seq_size() > right.get_seq_size();
+    }
+    for(int i = 0; i < left.get_seq_size(); i++) {
+        if(left.base_at(i) != right.base_at(i)) {
+            return left.base_at(i) < right.base_at(i);
+        }
+    }
+    return false;
+}
+    
 void Window::generate_consensus(const UINT32 engine_idx) {
+    std::stable_sort(_internal_arms.begin(), _internal_arms.end(), compare_arm_sequence);
+    std::stable_sort(_pre_arms.begin(), _pre_arms.end(), compare_arm_sequence);
+    std::stable_sort(_suf_arms.begin(), _suf_arms.end(), compare_arm_sequence);
+    
     auto wt = _wtype;
     auto num_non_empty_arms = _num_internal+_num_pre+_num_suf;
     if (_num_empty > num_non_empty_arms) {
