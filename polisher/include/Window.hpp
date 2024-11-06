@@ -119,6 +119,8 @@ public:
     }
 
     friend std::ostream &operator<<(std::ostream &, const Window &);
+    
+    static bool compare_arm_sequence(const PackedSeq<2> & left, const PackedSeq<2> & right);
 
 private:
     WindowType _wtype;
