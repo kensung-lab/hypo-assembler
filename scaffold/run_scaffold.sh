@@ -114,15 +114,20 @@ mkdir -p $tempdir
 echo "Using $sortmem memory on samtools sort."
 echo "Output: $prefix.fa"
 
+minimap2 -I 64G -ax map-$readtype -t $threads $contigs $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map_initial.sorted.bam
+minimap2 -I 64G -ax map-$readtype -t $threads $contigs2 $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map_initial2.sorted.bam
+
+python get_necessary_reads.py $tempdir/map_initial.sorted.bam $tempdir/map_initial2.sorted.bam $tempdir/filtered_reads.fa
+
 if [ "$debugmode" == "" ]; then
     echo "[SCAFFOLD: STEP 1] Finding scaffolds"
     echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
-    ./find_scaffold $kmerlen $solids $contigs $contigs2 $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
+    ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
 else
     touch $tempdir/runscaffold.log
     echo "[SCAFFOLD: STEP 1] Finding scaffolds <DEBUG>"
     echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
-    ./find_scaffold $kmerlen $solids $contigs $contigs2 $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
+    ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
 fi
 
 if [ "$debugmode" == "" ]; then
