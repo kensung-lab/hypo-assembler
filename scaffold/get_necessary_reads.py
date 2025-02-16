@@ -20,6 +20,11 @@ for align in aligns:
                 
 print("Reading alignments from %s" % sys.argv[2])
 aligns = pysam.AlignmentFile(sys.argv[2], "rb")
+
+contig_lens = {}
+for i in range(len(aligns.references)):
+    contig_lens[aligns.references[i]] = aligns.lengths[i]
+                
 for align in aligns:
     if not align.is_secondary and align.reference_name is not None:
         if align.reference_start <= 10000 or (align.reference_end is not None and align.reference_end >= contig_lens[align.reference_name] - 10000):
