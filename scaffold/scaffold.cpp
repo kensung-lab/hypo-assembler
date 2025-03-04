@@ -408,7 +408,13 @@ int main(int argc, char* argv[]) {
                                 minkmer = tempkmer1 < tempkmer2 ? tempkmer1 : tempkmer2;
                                 maxkmer = tempkmer1 < tempkmer2 ? tempkmer2 : tempkmer1;
                                 
-                                score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
+                                // this match is not supported by reads!
+                                if(matching_solids.find(make_tuple(minkmer, maxkmer)) == matching_solids.end()) {
+                                    score_reverse[it] = 1;
+                                } 
+                                else {
+                                    score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
+                                }
                             }
                         }
                     }
@@ -745,7 +751,12 @@ int main(int argc, char* argv[]) {
                                 minkmer = tempkmer1 < tempkmer2 ? tempkmer1 : tempkmer2;
                                 maxkmer = tempkmer1 < tempkmer2 ? tempkmer2 : tempkmer1;
                                 
-                                score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
+                                if(matching_solids.find(make_tuple(minkmer, maxkmer)) == matching_solids.end()) {
+                                    score_reverse[it] = 1;
+                                } 
+                                else {
+                                    score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
+                                }
                             }
                         }
                     }
