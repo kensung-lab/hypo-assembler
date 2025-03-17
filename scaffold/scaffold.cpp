@@ -163,9 +163,12 @@ int main(int argc, char* argv[]) {
     
     map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
+    map<tuple<uint64_t, uint64_t>, vector<string> > sequences_between;
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
         int count_not_N = 0;
+        int previous_solid = -1;
+        uint64_t previous_kmer;
         vector<uint64_t> current_solids;
         for(size_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
@@ -177,6 +180,13 @@ int main(int argc, char* argv[]) {
                 if(count_not_N >= k) {
                     if(bv_sd[kmer[z]]) {
                         current_solids.push_back(kmer[z]);
+                        
+                        if(previous_solid != -1) {
+                            sequences_between[make_tuple(previous_kmer, kmer[z])].push_back(string(seq->seq.s, seq->seq.s+i-previous_solid));
+                        }
+                        
+                        previous_kmer = kmer[z];
+                        previous_solid = i;
                     }
                 }
             } else {
@@ -594,6 +604,7 @@ int main(int argc, char* argv[]) {
             // find best chaining score
             sort(solid_matches_forward.begin(), solid_matches_forward.end());
             sort(solid_matches_reverse.begin(), solid_matches_reverse.end());
+            
             
             match_fwd.push_back(solid_matches_forward);
             match_rev.push_back(solid_matches_reverse);
