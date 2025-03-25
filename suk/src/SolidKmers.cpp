@@ -182,8 +182,8 @@ bool SolidKmers::initialise(const std::vector<std::string> & filenames, const UI
                     fwd_kmer = ((fwd_kmer << 2ULL) | b) & mask;
                     rc_kmer = (rc_kmer >> 2ULL) | (3ULL^b) << shift;
                 }
-                _bv.assign(fwd_kmer, 1);
-                _bv.assign(rc_kmer, 1);
+                _bv.set(fwd_kmer);
+                _bv.set(rc_kmer);
                 ++_num_Solid_kmers;
             }
         }
@@ -274,8 +274,8 @@ bool SolidKmers::initialise_from_file(const UINT32 threads, const UINT32 max_mem
                     fwd_kmer = ((fwd_kmer << 2ULL) | b) & mask;
                     rc_kmer = (rc_kmer >> 2ULL) | (3ULL^b) << shift;
                 }
-                _bv.assign(fwd_kmer, 1);
-                _bv.assign(rc_kmer, 1);
+                _bv.set(fwd_kmer);
+                _bv.set(rc_kmer);
                 ++_num_Solid_kmers;
             }
         }

@@ -48,7 +48,7 @@ void Hypo::polish() {
     _monitor.start();
     if (_cFlags.done_stage< STAGE_SK) {
         pSK = std::make_unique<suk::SolidKmers>(_cFlags.k);
-        bool is_success = pSK->initialise(_cFlags.sr_filenames,num_threads, _cFlags.sz_in_gb, _cFlags.cov, true, AUX_DIR);
+        bool is_success = pSK->initialise(_cFlags.sr_filenames,num_threads, _cFlags.sz_in_gb, _cFlags.cov, true, AUX_DIR, false);
         if (!is_success) {
             fprintf(stderr, "[Hypo::SolidKmers] Error: KMC Output: Could not have successful run of SUK for computing Solid kmers!\n");
             exit(1);
