@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <map>
+#include <set>
 #include <tuple>
 #include <vector>
 #include <algorithm>
@@ -88,6 +89,8 @@ int main(int argc, char* argv[]) {
     }
     cerr << "k = " << k << endl;
     
+    cerr << "Debug mode: " << is_debug << endl;
+    
     unordered_set<uint64_t> solid_kmers;
     
     cerr << "Reading kmers from " << argv[2] << "." << endl;
@@ -131,7 +134,7 @@ int main(int argc, char* argv[]) {
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
                     count_kmers++;
-                    if(bv_sd[kmer[z]]) {
+                    if(bv_sd[kmer[z]] && (i <= 100000 || i >= seq->seq.l - 100000) ) {
                         //found a solid kmer, do something here
                         current_contig_solids[kmer[z]].push_back(make_tuple(z, i));
                         kmer_counter[kmer[z]]++;
@@ -148,7 +151,7 @@ int main(int argc, char* argv[]) {
         total_kmers += current_contig_solids.size();
     }
     
-    cerr << "Total: " << total_kmers << " " << kmer_counter.size() << endl;
+    cerr << "Total: " << kmer_counter.size() << endl;
     
     if(remove_dupe) {
         unordered_set<uint64_t> multi_solid;
@@ -174,17 +177,24 @@ int main(int argc, char* argv[]) {
     map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
     map<tuple<uint64_t, uint64_t>, vector<string> > sequences_between;
-    map<tuple<uint64_t, uint64_t>, uint32_t > counter_between;
+    //map<tuple<uint64_t, uint64_t>, uint32_t > counter_between;
     
     uint64_t total_reads = 0;
     uint64_t read_total_kmers = 0;
+    
+    set<uint64_t> current_solids;
+    set<tuple<uint64_t, uint64_t> > pairs;
+    
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
         int count_not_N = 0;
         int count_kmer = 0;
         int previous_solid = -1;
         uint64_t previous_kmer;
-        vector<uint64_t> current_solids;
+        
+        current_solids.clear();
+        pairs.clear();
+        
         for(size_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
             if(c < 4) {
@@ -194,14 +204,14 @@ int main(int argc, char* argv[]) {
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
                     count_kmer += 1;
-                    if(bv_sd[kmer[z]]) {
+                    if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
                         read_total_kmers++;
-                        current_solids.push_back(kmer[z]);
+                        current_solids.insert(kmer[z]);
                         
                         if(previous_solid != -1) {
                             std::string get_sequence = string(seq->seq.s, seq->seq.s+i-previous_solid);
                             if(is_debug) sequences_between[make_tuple(previous_kmer, kmer[z])].push_back(get_sequence);
-                            counter_between[make_tuple(previous_kmer, kmer[z])]++;
+                            // counter_between[make_tuple(previous_kmer, kmer[z])]++;
                         }
                         
                         previous_kmer = kmer[z];
@@ -212,18 +222,22 @@ int main(int argc, char* argv[]) {
                 count_not_N = 0;
             }
         }
-        for(size_t i = 0; i < current_solids.size(); i++) {
-            for(size_t j = i + 1; j < current_solids.size(); j++) {
-                minkmer = current_solids[i] < current_solids[j] ? current_solids[i] : current_solids[j];
-                maxkmer = current_solids[i] < current_solids[j] ? current_solids[j] : current_solids[i];
-                matching_solids[make_tuple(minkmer, maxkmer)]++;
+        
+        for(auto & kmer1 : current_solids) {
+            for(auto & kmer2 : current_solids) {
+                minkmer = kmer1 < kmer2 ? kmer1 : kmer2;
+                maxkmer = kmer1 < kmer2 ? kmer2 : kmer1;
+                pairs.insert(make_tuple(minkmer, maxkmer));
             }
         }
+        for(auto & x : pairs) matching_solids[x]++;
+        
         total_reads++;
+        if(total_reads % 10000 == 0) {
+            cerr << "Processed " << total_reads << " reads. Size of matching solids: " << matching_solids.size() << " " << sequences_between.size() << endl;
+        }
     }
-    
     cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
-    
     
     cerr << "Finding scaffolds" << endl;
     
