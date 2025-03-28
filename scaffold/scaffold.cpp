@@ -45,9 +45,14 @@ int main(int argc, char* argv[]) {
     for(int i = 0; i < argc; i++) cerr << argv[i] << " ";
     cerr << endl;
     
+    bool is_debug = false;
     ofstream out_debug;
     
     if(argc > 10) {
+        is_debug = true;
+    }
+    
+    if(is_debug) {
         try {
             out_debug.open(argv[10]);
         } catch(exception const &e) {
@@ -86,14 +91,12 @@ int main(int argc, char* argv[]) {
     unordered_set<uint64_t> solid_kmers;
     
     cerr << "Reading kmers from " << argv[2] << "." << endl;
-    // sdsl::bit_vector bv_sd;
-    // sdsl::load_from_file(bv_sd, argv[2]);
-    // auto get_ones = sdsl::bit_vector::rank_1_type(&bv_sd)(bv_sd.size());
     CustomBitvector bv_sd(1ULL<<(2*k));
     bv_sd.load(argv[2]);
     auto get_ones = bv_sd.count();
     
     cerr << "Got " << get_ones << " solid kmers." << endl;
+    cerr << "Bitvector size: " << bv_sd.size() << endl;
     
     uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
     
@@ -108,10 +111,13 @@ int main(int argc, char* argv[]) {
     kseq_t *seq;
     seq = kseq_init(fp);
     int l;
+    
+    int total_kmers = 0;
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
         cerr << "Processing contig " << read_name << endl;
         int count_not_N = 0;
+        int count_kmers = 0;
         
         contig_names.push_back(read_name);
         contig_lens.push_back(seq->seq.l);
@@ -124,6 +130,7 @@ int main(int argc, char* argv[]) {
                 count_not_N++;
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
+                    count_kmers++;
                     if(bv_sd[kmer[z]]) {
                         //found a solid kmer, do something here
                         current_contig_solids[kmer[z]].push_back(make_tuple(z, i));
@@ -137,8 +144,11 @@ int main(int argc, char* argv[]) {
         
         contig_solids.push_back(current_contig_solids);
         
-        cerr << "Found " << current_contig_solids.size() << " solids." << endl;
+        cerr << "Found " << current_contig_solids.size() << " solids out of " << count_kmers << endl;
+        total_kmers += current_contig_solids.size();
     }
+    
+    cerr << "Total: " << total_kmers << " " << kmer_counter.size() << endl;
     
     if(remove_dupe) {
         unordered_set<uint64_t> multi_solid;
@@ -164,9 +174,14 @@ int main(int argc, char* argv[]) {
     map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
     map<tuple<uint64_t, uint64_t>, vector<string> > sequences_between;
+    map<tuple<uint64_t, uint64_t>, uint32_t > counter_between;
+    
+    uint64_t total_reads = 0;
+    uint64_t read_total_kmers = 0;
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
         int count_not_N = 0;
+        int count_kmer = 0;
         int previous_solid = -1;
         uint64_t previous_kmer;
         vector<uint64_t> current_solids;
@@ -178,11 +193,15 @@ int main(int argc, char* argv[]) {
                 count_not_N++;
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
+                    count_kmer += 1;
                     if(bv_sd[kmer[z]]) {
+                        read_total_kmers++;
                         current_solids.push_back(kmer[z]);
                         
                         if(previous_solid != -1) {
-                            sequences_between[make_tuple(previous_kmer, kmer[z])].push_back(string(seq->seq.s, seq->seq.s+i-previous_solid));
+                            std::string get_sequence = string(seq->seq.s, seq->seq.s+i-previous_solid);
+                            if(is_debug) sequences_between[make_tuple(previous_kmer, kmer[z])].push_back(get_sequence);
+                            counter_between[make_tuple(previous_kmer, kmer[z])]++;
                         }
                         
                         previous_kmer = kmer[z];
@@ -200,7 +219,10 @@ int main(int argc, char* argv[]) {
                 matching_solids[make_tuple(minkmer, maxkmer)]++;
             }
         }
+        total_reads++;
     }
+    
+    cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
     
     
     cerr << "Finding scaffolds" << endl;
@@ -281,7 +303,7 @@ int main(int argc, char* argv[]) {
             
             #pragma omp critical 
             {
-                if(argc > 9) {
+                if(is_debug) {
                     out_debug << contig_names[i] << "\t" << contig_names[j] << "\n";
                     
                     for(int it = 0; it < solid_matches_forward.size(); it++) out_debug << "F\t" << get<0>(solid_matches_forward[it]) << "\t" << get<1>(solid_matches_forward[it]) << "\n";
@@ -625,7 +647,7 @@ int main(int argc, char* argv[]) {
             
             #pragma omp critical 
             {
-                if(argc > 9) {
+                if(is_debug) {
                     out_debug << contig_names[i] << "\t" << contig_names[j] << "\n";
                     
                     for(int it = 0; it < solid_matches_forward.size(); it++) out_debug << "F\t" << get<0>(solid_matches_forward[it]) << "\t" << get<1>(solid_matches_forward[it]) << "\n";
@@ -837,5 +859,5 @@ int main(int argc, char* argv[]) {
     }
     output2.close();
     
-    if(argc > 9) out_debug.close();
+    if(is_debug) out_debug.close();
 }
