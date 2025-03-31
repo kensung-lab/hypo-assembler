@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
     uint64_t total_reads = 0;
     uint64_t read_total_kmers = 0;
     
-    set<uint64_t> current_solids;
-    set<tuple<uint64_t, uint64_t> > pairs;
+    set<uint32_t> current_contigs;
+    uint32_t count_solid = 0;
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
@@ -197,9 +197,7 @@ int main(int argc, char* argv[]) {
         int previous_solid = -1;
         uint64_t previous_kmer;
         
-        current_solids.clear();
-        pairs.clear();
-        
+        current_contigs.clear();
         for(size_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
             if(c < 4) {
@@ -211,7 +209,7 @@ int main(int argc, char* argv[]) {
                     count_kmer += 1;
                     if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
                         read_total_kmers++;
-                        current_solids.insert(kmer[z]);
+                        current_contigs.insert(get<0>(kmer_locations[kmer[z]]));
                         
                         if(previous_solid != -1) {
                             std::string get_sequence = string(seq->seq.s, seq->seq.s+i-previous_solid);
@@ -228,26 +226,17 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        for(auto & kmer1 : current_solids) {
-            for(auto & kmer2 : current_solids) {
-                minkmer = kmer1 < kmer2 ? kmer1 : kmer2;
-                maxkmer = kmer1 < kmer2 ? kmer2 : kmer1;
-                pairs.insert(make_tuple(minkmer, maxkmer));
-            }
-        }
-        for(auto & x : pairs) { //matching_solids[x]++;
-            uint32_t contig_id_1 = get<0>(kmer_locations[get<0>(x)]);
-            uint32_t contig_id_2 = get<0>(kmer_locations[get<1>(x)]);
-            if(contig_id_1 != contig_id_2) {
-                uint32_t minid = contig_id_1 < contig_id_2 ? contig_id_1 : contig_id_2;
-                uint32_t maxid = contig_id_1 < contig_id_2 ? contig_id_2 : contig_id_1;
-                matching_contigs[make_tuple(minid, maxid)]++;
+        for(auto & contig_id_1 : current_contigs) { //matching_solids[x]++;
+            for(auto & contig_id_2 : current_contigs) {
+                if(contig_id_1 != contig_id_2) {
+                    uint32_t minid = contig_id_1 < contig_id_2 ? contig_id_1 : contig_id_2;
+                    uint32_t maxid = contig_id_1 < contig_id_2 ? contig_id_2 : contig_id_1;
+                    matching_contigs[make_tuple(minid, maxid)]++;
+                }
             }
         }
         total_reads++;
-        if(total_reads % 10000 == 0) {
-            cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << " " << sequences_between.size() << endl;
-        }
+        if(total_reads % 100000 == 0)  cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << " " << sequences_between.size() << endl;
     }
     cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
     
