@@ -108,6 +108,8 @@ int main(int argc, char* argv[]) {
     vector<unordered_map<uint64_t, vector<tuple<uint8_t, uint64_t> > > > contig_solids;
     
     unordered_map<uint64_t, uint64_t> kmer_counter;
+    unordered_map<uint64_t, tuple<uint32_t, size_t, uint8_t> > kmer_locations;
+    
     
     cerr << "Processing contigs from " << argv[3] << "." << endl;
     gzFile fp = gzopen(argv[3], "r");
@@ -122,8 +124,6 @@ int main(int argc, char* argv[]) {
         int count_not_N = 0;
         int count_kmers = 0;
         
-        contig_names.push_back(read_name);
-        contig_lens.push_back(seq->seq.l);
         unordered_map<uint64_t, vector<tuple<uint8_t, uint64_t> > > current_contig_solids;
         for(size_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
@@ -138,12 +138,16 @@ int main(int argc, char* argv[]) {
                         //found a solid kmer, do something here
                         current_contig_solids[kmer[z]].push_back(make_tuple(z, i));
                         kmer_counter[kmer[z]]++;
+                        kmer_locations[kmer[z]] = make_tuple(contig_names.size(), i, z);
                     }
                 }
             } else {
                 count_not_N = 0;
             }
         }
+        
+        contig_names.push_back(read_name);
+        contig_lens.push_back(seq->seq.l);
         
         contig_solids.push_back(current_contig_solids);
         
@@ -174,7 +178,8 @@ int main(int argc, char* argv[]) {
     fp = gzopen(argv[5], "r");
     seq = kseq_init(fp);
     
-    map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
+    // map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
+    map<tuple<uint64_t, uint64_t>, uint64_t> matching_contigs;
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
     map<tuple<uint64_t, uint64_t>, vector<string> > sequences_between;
     //map<tuple<uint64_t, uint64_t>, uint32_t > counter_between;
@@ -230,11 +235,18 @@ int main(int argc, char* argv[]) {
                 pairs.insert(make_tuple(minkmer, maxkmer));
             }
         }
-        for(auto & x : pairs) matching_solids[x]++;
-        
+        for(auto & x : pairs) { //matching_solids[x]++;
+            uint32_t contig_id_1 = get<0>(kmer_locations[get<0>(x)]);
+            uint32_t contig_id_2 = get<0>(kmer_locations[get<1>(x)]);
+            if(contig_id_1 != contig_id_2) {
+                uint32_t minid = contig_id_1 < contig_id_2 ? contig_id_1 : contig_id_2;
+                uint32_t maxid = contig_id_1 < contig_id_2 ? contig_id_2 : contig_id_1;
+                matching_contigs[make_tuple(minid, maxid)]++;
+            }
+        }
         total_reads++;
         if(total_reads % 10000 == 0) {
-            cerr << "Processed " << total_reads << " reads. Size of matching solids: " << matching_solids.size() << " " << sequences_between.size() << endl;
+            cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << " " << sequences_between.size() << endl;
         }
     }
     cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
@@ -451,15 +463,15 @@ int main(int argc, char* argv[]) {
                                 tempkmer1 = get<2>(solid_matches_reverse[it]);
                                 tempkmer2 = get<2>(solid_matches_reverse[it2]);
                                 
-                                minkmer = tempkmer1 < tempkmer2 ? tempkmer1 : tempkmer2;
-                                maxkmer = tempkmer1 < tempkmer2 ? tempkmer2 : tempkmer1;
+                                minkmer = i_idx < j_idx ? i_idx : j_idx;
+                                maxkmer = i_idx < j_idx ? i_idx : j_idx;
                                 
                                 // this match is not supported by reads!
-                                if(matching_solids.find(make_tuple(minkmer, maxkmer)) == matching_solids.end()) {
+                                if(matching_contigs.find(make_tuple(minkmer, maxkmer)) == matching_contigs.end()) {
                                     score_reverse[it] = 1;
                                 } 
                                 else {
-                                    score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
+                                    score_reverse[it] += matching_contigs[make_tuple(minkmer, maxkmer)];
                                 }
                             }
                         }
@@ -795,14 +807,15 @@ int main(int argc, char* argv[]) {
                                 tempkmer1 = get<2>(solid_matches_reverse[it]);
                                 tempkmer2 = get<2>(solid_matches_reverse[it2]);
                                 
-                                minkmer = tempkmer1 < tempkmer2 ? tempkmer1 : tempkmer2;
-                                maxkmer = tempkmer1 < tempkmer2 ? tempkmer2 : tempkmer1;
+                                minkmer = i_idx < j_idx ? i_idx : j_idx;
+                                maxkmer = i_idx < j_idx ? i_idx : j_idx;
                                 
-                                if(matching_solids.find(make_tuple(minkmer, maxkmer)) == matching_solids.end()) {
+                                // this match is not supported by reads!
+                                if(matching_contigs.find(make_tuple(minkmer, maxkmer)) == matching_contigs.end()) {
                                     score_reverse[it] = 1;
-                                } 
+                                }
                                 else {
-                                    score_reverse[it] += matching_solids[make_tuple(minkmer, maxkmer)];
+                                    score_reverse[it] += matching_contigs[make_tuple(minkmer, maxkmer)];
                                 }
                             }
                         }
