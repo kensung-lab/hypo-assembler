@@ -38,6 +38,8 @@ unsigned char seq_nt4_table[256] = {
 };
 
 int main(int argc, char* argv[]) {
+    auto start_time = chrono::high_resolution_clock::now();
+    
     if(argc < 8) {
         cerr << "Usage: " << argv[0] << " <k> <kmers input> <contigs 1 fasta> <contigs 2 fasta> <long reads> <output 1> <output 2> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)> <optional: debug_output>" << endl;
         return 1;
@@ -108,9 +110,11 @@ int main(int argc, char* argv[]) {
     vector<unordered_map<uint64_t, vector<tuple<uint8_t, uint64_t> > > > contig_solids;
     
     unordered_map<uint64_t, uint64_t> kmer_counter;
-    unordered_map<uint64_t, tuple<uint32_t, size_t, uint8_t> > kmer_locations;
     
+    // kmer to contig_id, pos, orientation
+    unordered_map<uint64_t, tuple<uint32_t, uint32_t, uint8_t> > kmer_locations;
     
+    auto begin_time = chrono::high_resolution_clock::now();
     cerr << "Processing contigs from " << argv[3] << "." << endl;
     gzFile fp = gzopen(argv[3], "r");
     kseq_t *seq;
@@ -125,7 +129,7 @@ int main(int argc, char* argv[]) {
         int count_kmers = 0;
         
         unordered_map<uint64_t, vector<tuple<uint8_t, uint64_t> > > current_contig_solids;
-        for(size_t i = 0; i < seq->seq.l; i++) {
+        for(uint32_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
             if(c < 4) {
                 kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
@@ -155,7 +159,14 @@ int main(int argc, char* argv[]) {
         total_kmers += current_contig_solids.size();
     }
     
-    cerr << "Total: " << kmer_counter.size() << endl;
+    auto current_time = chrono::high_resolution_clock::now();
+    
+    chrono::duration<double, milli> time_diff = current_time - begin_time;
+    chrono::duration<double, milli> time_from_start = current_time - start_time;
+    
+    cerr << "Processing contigs done: " << kmer_counter.size() << endl;
+    cerr << "Processing contigs time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
+    
     
     if(remove_dupe) {
         unordered_set<uint64_t> multi_solid;
@@ -178,17 +189,21 @@ int main(int argc, char* argv[]) {
     fp = gzopen(argv[5], "r");
     seq = kseq_init(fp);
     
-    // map<tuple<uint64_t, uint64_t>, uint64_t> matching_solids;
-    map<tuple<uint64_t, uint64_t>, uint64_t> matching_contigs;
+    // contig 1, orientation 1, contig 2, orientation 2
+    map<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, uint32_t> matching_contigs;
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
-    map<tuple<uint64_t, uint64_t>, vector<string> > sequences_between;
-    //map<tuple<uint64_t, uint64_t>, uint32_t > counter_between;
     
     uint64_t total_reads = 0;
     uint64_t read_total_kmers = 0;
     
-    set<uint32_t> current_contigs;
+    // kmer, orientation
+    vector<tuple<uint64_t, uint8_t> > current_contigs;
     uint32_t count_solid = 0;
+    
+    begin_time = chrono::high_resolution_clock::now();
+    
+    
+    set<tuple<uint32_t, uint8_t, uint32_t, uint8_t> > to_add;
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
@@ -198,7 +213,7 @@ int main(int argc, char* argv[]) {
         uint64_t previous_kmer;
         
         current_contigs.clear();
-        for(size_t i = 0; i < seq->seq.l; i++) {
+        for(uint32_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
             if(c < 4) {
                 kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
@@ -209,16 +224,7 @@ int main(int argc, char* argv[]) {
                     count_kmer += 1;
                     if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
                         read_total_kmers++;
-                        current_contigs.insert(get<0>(kmer_locations[kmer[z]]));
-                        
-                        if(previous_solid != -1) {
-                            std::string get_sequence = string(seq->seq.s, seq->seq.s+i-previous_solid);
-                            if(is_debug) sequences_between[make_tuple(previous_kmer, kmer[z])].push_back(get_sequence);
-                            // counter_between[make_tuple(previous_kmer, kmer[z])]++;
-                        }
-                        
-                        previous_kmer = kmer[z];
-                        previous_solid = i;
+                        current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
                     }
                 }
             } else {
@@ -226,19 +232,36 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        for(auto & contig_id_1 : current_contigs) { //matching_solids[x]++;
-            for(auto & contig_id_2 : current_contigs) {
-                if(contig_id_1 != contig_id_2) {
-                    uint32_t minid = contig_id_1 < contig_id_2 ? contig_id_1 : contig_id_2;
-                    uint32_t maxid = contig_id_1 < contig_id_2 ? contig_id_2 : contig_id_1;
-                    matching_contigs[make_tuple(minid, maxid)]++;
+        to_add.clear();
+        for(int i = 0; i < current_contigs.size(); i++) {
+            for(int j = i + 1; j < current_contigs.size(); j++) {
+                uint32_t contig_i = get<0>(current_contigs[i]);
+                uint32_t contig_j = get<0>(current_contigs[j]);
+                if(contig_i != contig_j) {
+                    uint8_t orientation_i = get<1>(current_contigs[i]);
+                    uint8_t orientation_j = get<1>(current_contigs[j]);
+                    
+                    to_add.insert(make_tuple(contig_i, orientation_i, contig_j, orientation_j));
                 }
             }
         }
+        
+        for(auto & x : to_add) matching_contigs[x]++;
+        
+        current_time = chrono::high_resolution_clock::now();
+        time_diff = current_time - begin_time;
+        time_from_start = current_time - start_time;
+        
         total_reads++;
-        if(total_reads % 100000 == 0)  cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << " " << sequences_between.size() << endl;
+        if(total_reads % 100 == 0) {
+            cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
+            cerr << "Size of kmers: " << current_contigs.size() << ". Size of to add: " << to_add.size() << endl;
+            cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
+        }
     }
     cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
+    
+    // go through the reads again to get the sequences, check if can get consensus!
     
     cerr << "Finding scaffolds" << endl;
     
@@ -247,7 +270,7 @@ int main(int argc, char* argv[]) {
     // initialize ordering based on the solid kmers count
     vector<size_t> ordering;
     for(int i = 0; i < contig_names.size(); i++) ordering.push_back(i);
-    sort(ordering.begin(), ordering.end(), [&](size_t i1, size_t i2) {return contig_solids[i1].size() > contig_solids[i2].size();});
+    sort(ordering.begin(), ordering.end(), [&](size_t i1, size_t i2) { return contig_solids[i1].size() > contig_solids[i2].size(); });
     
     #pragma omp parallel for num_threads(thread_count)
     for(int i_idx = 0; i_idx < contig_names.size(); i_idx++) {
@@ -456,11 +479,11 @@ int main(int argc, char* argv[]) {
                                 maxkmer = i_idx < j_idx ? i_idx : j_idx;
                                 
                                 // this match is not supported by reads!
-                                if(matching_contigs.find(make_tuple(minkmer, maxkmer)) == matching_contigs.end()) {
+                                if(matching_contigs.find(make_tuple(minkmer, 0, maxkmer, 0)) == matching_contigs.end()) {
                                     score_reverse[it] = 1;
                                 } 
                                 else {
-                                    score_reverse[it] += matching_contigs[make_tuple(minkmer, maxkmer)];
+                                    score_reverse[it] += matching_contigs[make_tuple(minkmer, 0, maxkmer, 0)];
                                 }
                             }
                         }
@@ -521,28 +544,31 @@ int main(int argc, char* argv[]) {
                 tuple<int, int, int, int, int, int> result;
                 for(int zz = 0; zz < results.size(); zz++) {
                     result = results[zz];
-                    output1 << contig_names[i] << "\t" << get<0>(result) << "\t" << get<1>(result) << "\t" << contig_names[best_contig_match] << "\t" << get<2>(result) << "\t" << get<3>(result) << "\t" << get<4>(result) << "\t" << get<5>(result) << "\t";
-                    if(zz == 0) cout << "P" << endl;
-                    else cout << "EXT" << endl;
-                } 
+                    output1 << contig_names[i] << "\t" << get<0>(result) << "\t" << get<1>(result) << "\t" << contig_names[best_contig_match] << "\t" << get<2>(result) << "\t" << get<3>(result) << "\t" << get<4>(result) << "\t" << get<5>(result) << "\n";
+                    // if(zz == 0) cout << "P" << endl;
+                    // else cout << "EXT" << endl;
+                }
             }
             else output1 << contig_names[i] << "\t-1\t-1\tNA\t-1\t-1\t-1\t-1" << endl;
         }
     }
     output1.close();
     
+    
+    begin_time = chrono::high_resolution_clock::now();
     cerr << "Processing contigs from " << argv[4] << "." << endl;
-    fp = gzopen(argv[4], "r");
+    fp = gzopen(argv[3], "r");
     seq = kseq_init(fp);
+    
+    total_kmers = 0;
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
         cerr << "Processing contig " << read_name << endl;
         int count_not_N = 0;
+        int count_kmers = 0;
         
-        contig_names.push_back(read_name);
-        contig_lens.push_back(seq->seq.l);
         unordered_map<uint64_t, vector<tuple<uint8_t, uint64_t> > > current_contig_solids;
-        for(size_t i = 0; i < seq->seq.l; i++) {
+        for(uint32_t i = 0; i < seq->seq.l; i++) {
             int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
             if(c < 4) {
                 kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
@@ -550,10 +576,12 @@ int main(int argc, char* argv[]) {
                 count_not_N++;
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
-                    if(bv_sd[kmer[z]]) {
+                    count_kmers++;
+                    if(bv_sd[kmer[z]] && (i <= 100000 || i >= seq->seq.l - 100000) ) {
                         //found a solid kmer, do something here
                         current_contig_solids[kmer[z]].push_back(make_tuple(z, i));
                         kmer_counter[kmer[z]]++;
+                        kmer_locations[kmer[z]] = make_tuple(contig_names.size(), i, z);
                     }
                 }
             } else {
@@ -561,10 +589,23 @@ int main(int argc, char* argv[]) {
             }
         }
         
+        contig_names.push_back(read_name);
+        contig_lens.push_back(seq->seq.l);
+        
         contig_solids.push_back(current_contig_solids);
         
-        cerr << "Found " << current_contig_solids.size() << " solids." << endl;
+        cerr << "Found " << current_contig_solids.size() << " solids out of " << count_kmers << endl;
+        total_kmers += current_contig_solids.size();
     }
+    
+    current_time = chrono::high_resolution_clock::now();
+    
+    time_diff = current_time - begin_time;
+    time_from_start = current_time - start_time;
+    
+    cerr << "Processing contigs done: " << kmer_counter.size() << endl;
+    cerr << "Processing contigs time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
+    
     
     if(remove_dupe) {
         unordered_set<uint64_t> multi_solid;
@@ -583,6 +624,83 @@ int main(int argc, char* argv[]) {
         }
     }
     
+    cerr << "Processing reads from " << argv[5] << "." << endl;
+    fp = gzopen(argv[5], "r");
+    seq = kseq_init(fp);
+    
+    // contig 1, orientation 1, contig 2, orientation 2
+    matching_contigs.clear();
+    
+    total_reads = 0;
+    read_total_kmers = 0;
+    
+    // kmer, orientation
+    current_contigs.clear();
+    count_solid = 0;
+    
+    begin_time = chrono::high_resolution_clock::now();
+    
+    
+    to_add.clear();
+    
+    while((l = kseq_read(seq)) >= 0) {
+        string read_name = seq->name.s;
+        int count_not_N = 0;
+        int count_kmer = 0;
+        int previous_solid = -1;
+        uint64_t previous_kmer;
+        
+        current_contigs.clear();
+        for(uint32_t i = 0; i < seq->seq.l; i++) {
+            int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
+            if(c < 4) {
+                kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
+                kmer[1] = (kmer[1] >> 2ull) | (3ULL^c) << shift1; // reverse k-mer
+                count_not_N++;
+                int z = kmer[0] < kmer[1] ? 0 : 1;
+                if(count_not_N >= k) {
+                    count_kmer += 1;
+                    if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
+                        read_total_kmers++;
+                        current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+                    }
+                }
+            } else {
+                count_not_N = 0;
+            }
+        }
+        
+        to_add.clear();
+        for(int i = 0; i < current_contigs.size(); i++) {
+            for(int j = i + 1; j < current_contigs.size(); j++) {
+                uint32_t contig_i = get<0>(current_contigs[i]);
+                uint32_t contig_j = get<0>(current_contigs[j]);
+                if(contig_i != contig_j) {
+                    uint8_t orientation_i = get<1>(current_contigs[i]);
+                    uint8_t orientation_j = get<1>(current_contigs[j]);
+                    
+                    to_add.insert(make_tuple(contig_i, orientation_i, contig_j, orientation_j));
+                }
+            }
+        }
+        
+        for(auto & x : to_add) matching_contigs[x]++;
+        
+        current_time = chrono::high_resolution_clock::now();
+        time_diff = current_time - begin_time;
+        time_from_start = current_time - start_time;
+        
+        total_reads++;
+        if(total_reads % 100 == 0) {
+            cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
+            cerr << "Size of kmers: " << current_contigs.size() << ". Size of to add: " << to_add.size() << endl;
+            cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
+        }
+    }
+    cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
+    
+    // go through the reads again to get the sequences, check if can get consensus!
+    
     cerr << "Finding scaffolds" << endl;
     
     ofstream output2(argv[7]);
@@ -590,7 +708,7 @@ int main(int argc, char* argv[]) {
     // initialize ordering based on the solid kmers count
     ordering.clear();
     for(int i = 0; i < contig_names.size(); i++) ordering.push_back(i);
-    sort(ordering.begin(), ordering.end(), [&](size_t i1, size_t i2) {return contig_solids[i1].size() > contig_solids[i2].size();});
+    sort(ordering.begin(), ordering.end(), [&](size_t i1, size_t i2) { return contig_solids[i1].size() > contig_solids[i2].size(); });
     
     #pragma omp parallel for num_threads(thread_count)
     for(int i_idx = 0; i_idx < contig_names.size(); i_idx++) {
@@ -641,7 +759,6 @@ int main(int argc, char* argv[]) {
             // find best chaining score
             sort(solid_matches_forward.begin(), solid_matches_forward.end());
             sort(solid_matches_reverse.begin(), solid_matches_reverse.end());
-            
             
             match_fwd.push_back(solid_matches_forward);
             match_rev.push_back(solid_matches_reverse);
@@ -800,11 +917,11 @@ int main(int argc, char* argv[]) {
                                 maxkmer = i_idx < j_idx ? i_idx : j_idx;
                                 
                                 // this match is not supported by reads!
-                                if(matching_contigs.find(make_tuple(minkmer, maxkmer)) == matching_contigs.end()) {
+                                if(matching_contigs.find(make_tuple(minkmer, 0, maxkmer, 0)) == matching_contigs.end()) {
                                     score_reverse[it] = 1;
-                                }
+                                } 
                                 else {
-                                    score_reverse[it] += matching_contigs[make_tuple(minkmer, maxkmer)];
+                                    score_reverse[it] += matching_contigs[make_tuple(minkmer, 0, maxkmer, 0)];
                                 }
                             }
                         }
@@ -865,15 +982,13 @@ int main(int argc, char* argv[]) {
                 tuple<int, int, int, int, int, int> result;
                 for(int zz = 0; zz < results.size(); zz++) {
                     result = results[zz];
-                    output1 << contig_names[i] << "\t" << get<0>(result) << "\t" << get<1>(result) << "\t" << contig_names[best_contig_match] << "\t" << get<2>(result) << "\t" << get<3>(result) << "\t" << get<4>(result) << "\t" << get<5>(result) << "\t";
-                    if(zz == 0) cout << "P" << endl;
-                    else cout << "EXT" << endl;
-                } 
+                    output2 << contig_names[i] << "\t" << get<0>(result) << "\t" << get<1>(result) << "\t" << contig_names[best_contig_match] << "\t" << get<2>(result) << "\t" << get<3>(result) << "\t" << get<4>(result) << "\t" << get<5>(result) << "\n";
+                    // if(zz == 0) cout << "P" << endl;
+                    // else cout << "EXT" << endl;
+                }
             }
             else output2 << contig_names[i] << "\t-1\t-1\tNA\t-1\t-1\t-1\t-1" << endl;
         }
     }
     output2.close();
-    
-    if(is_debug) out_debug.close();
 }

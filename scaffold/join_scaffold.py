@@ -41,6 +41,8 @@ def find_identity(seq1, seq2):
         return total_match / min(len(seq1), len(seq2))
     else:
         return 0
+        
+IDENTITY_THRESHOLD = 0.9
 
 contig_filename = sys.argv[1]
 overlap_filename = sys.argv[2]
@@ -209,7 +211,7 @@ for p_idx in range(len(pair_to_process)):
                     # check for similarity
                     identity = find_identity(c1_part, c2_part)
                     
-                    if identity >= 0.9:
+                    if identity >= IDENTITY_THRESHOLD:
                     
                         # new contigs are done, now write 
 
@@ -229,7 +231,7 @@ for p_idx in range(len(pair_to_process)):
                 if right_used == 1: # for duplicates, do not add to processed_contigs the actual dupes
                     if len(c2_part) >= 0.8 * len(c2_seq):
                         identity = find_identity(c1_part, c2_part)
-                        if identity >= 0.9:
+                        if identity >= IDENTITY_THRESHOLD:
                             processed_contigs.add(c2)
                             duplicates.add((c2, c1))
                             print(c2, "is duplicate of", c1, "with identity", identity)
@@ -240,7 +242,7 @@ for p_idx in range(len(pair_to_process)):
                 else:
                     if len(c1_part) >= 0.8 * len(c1_seq):
                         identity = find_identity(c1_part, c2_part)
-                        if identity >= 0.9:
+                        if identity >= IDENTITY_THRESHOLD:
                             processed_contigs.add(c1)
                             duplicates.add((c1, c2))
                             print(c1, "is duplicate of", c2, "with identity", identity)
@@ -265,8 +267,6 @@ contig_filename = sys.argv[6]
 overlap_filename = sys.argv[7]
 output_path = sys.argv[8]
 temp_directory = sys.argv[5]
-
-NEW_SEGMENT_THRESHOLD = 1000
 
 print("Loading contigs")
 
@@ -420,7 +420,7 @@ for p_idx in range(len(pair_to_process)):
                     # check for similarity
                     identity = find_identity(c1_part, c2_part)
                     
-                    if identity >= 0.9:
+                    if identity >= IDENTITY_THRESHOLD:
                     
                         # new contigs are done, now write 
 
@@ -440,7 +440,7 @@ for p_idx in range(len(pair_to_process)):
                 if right_used == 1: # for duplicates, do not add to processed_contigs the actual dupes
                     if len(c2_part) >= 0.8 * len(c2_seq):
                         identity = find_identity(c1_part, c2_part)
-                        if identity >= 0.9:
+                        if identity >= IDENTITY_THRESHOLD:
                             processed_contigs.add(c2)
                             duplicates.add((c2, c1))
                             print(c2, "is duplicate of", c1, "with identity", identity)
@@ -451,7 +451,7 @@ for p_idx in range(len(pair_to_process)):
                 else:
                     if len(c1_part) >= 0.8 * len(c1_seq):
                         identity = find_identity(c1_part, c2_part)
-                        if identity >= 0.9:
+                        if identity >= IDENTITY_THRESHOLD:
                             processed_contigs.add(c1)
                             duplicates.add((c1, c2))
                             print(c1, "is duplicate of", c2, "with identity", identity)
