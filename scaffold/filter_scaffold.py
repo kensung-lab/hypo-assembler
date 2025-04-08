@@ -19,8 +19,8 @@ if len(sys.argv) > 7:
     debug_file = open(debug_path, "w")
 
 with open(sys.argv[1], "rb") as f:
-    overlap_positions, processed_contigs, contigs, duplicates = pickle.load(f)
-
+    write_result, processed_contigs, contigs, duplicates = pickle.load(f)
+overlap_positions = []
 aligns = pysam.AlignmentFile(sys.argv[2], "rb")
 
 final_sequences = []
@@ -103,7 +103,7 @@ for ctg in contigs:
         final_sequences.append(SeqRecord(Seq(contigs[ctg]), id=ctg))
 
 prefix = sys.argv[3]
-SeqIO.write(final_sequences, prefix + ".fa", "fasta")
+SeqIO.write(write_result, prefix + ".fa", "fasta")
 
 f = open(prefix + ".aux", "w")
 for cn, c1, c1s, c1e, c2, c2s, c2e, support in final_aux:
@@ -118,7 +118,8 @@ f.close()
 # contig 2
 
 with open(sys.argv[4], "rb") as f:
-    overlap_positions, processed_contigs, contigs, duplicates = pickle.load(f)
+    write_result, processed_contigs, contigs, duplicates = pickle.load(f)
+overlap_positions = []
 
 aligns = pysam.AlignmentFile(sys.argv[5], "rb")
 
@@ -200,7 +201,7 @@ for ctg in contigs:
         final_sequences.append(SeqRecord(Seq(contigs[ctg]), id=ctg))
 
 prefix = sys.argv[6]
-SeqIO.write(final_sequences, prefix + ".fa", "fasta")
+SeqIO.write(write_result, prefix + ".fa", "fasta")
 
 f = open(prefix + ".aux", "w")
 for cn, c1, c1s, c1e, c2, c2s, c2e, support in final_aux:

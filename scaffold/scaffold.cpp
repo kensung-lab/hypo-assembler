@@ -93,6 +93,8 @@ int main(int argc, char* argv[]) {
     
     cerr << "Debug mode: " << is_debug << endl;
     
+    uint32_t SCAFFOLD_THRESHOLD = 5;
+    
     unordered_set<uint64_t> solid_kmers;
     
     cerr << "Reading kmers from " << argv[2] << "." << endl;
@@ -266,6 +268,11 @@ int main(int argc, char* argv[]) {
     cerr << "Finding scaffolds" << endl;
     
     ofstream output1(argv[6]);
+    for(auto & x : matching_contigs) {
+        if(x.second >= SCAFFOLD_THRESHOLD) {
+            output1 << "R\t" << contig_names[get<0>(x.first)] << "\t" << unsigned(get<1>(x.first)) << "\t" << contig_names[get<2>(x.first)] << "\t" << unsigned(get<3>(x.first)) << "\t" << x.second << "\n";
+        }
+    }
     
     // initialize ordering based on the solid kmers count
     vector<size_t> ordering;
@@ -555,9 +562,15 @@ int main(int argc, char* argv[]) {
     output1.close();
     
     
+    contig_names.clear();
+    contig_lens.clear();
+    contig_solids.clear();
+    kmer_counter.clear();
+    kmer_locations.clear();
+    
     begin_time = chrono::high_resolution_clock::now();
     cerr << "Processing contigs from " << argv[4] << "." << endl;
-    fp = gzopen(argv[3], "r");
+    fp = gzopen(argv[4], "r");
     seq = kseq_init(fp);
     
     total_kmers = 0;
@@ -691,7 +704,7 @@ int main(int argc, char* argv[]) {
         time_from_start = current_time - start_time;
         
         total_reads++;
-        if(total_reads % 100 == 0) {
+        if(total_reads % 1000 == 0) {
             cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
             cerr << "Size of kmers: " << current_contigs.size() << ". Size of to add: " << to_add.size() << endl;
             cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
@@ -704,6 +717,11 @@ int main(int argc, char* argv[]) {
     cerr << "Finding scaffolds" << endl;
     
     ofstream output2(argv[7]);
+    for(auto & x : matching_contigs) {
+        if(x.second >= SCAFFOLD_THRESHOLD) {
+            output2 << "R\t" << contig_names[get<0>(x.first)] << "\t" << unsigned(get<1>(x.first)) << "\t" << contig_names[get<2>(x.first)] << "\t" << unsigned(get<3>(x.first)) << "\t" << x.second << "\n";
+        }
+    }
     
     // initialize ordering based on the solid kmers count
     ordering.clear();
