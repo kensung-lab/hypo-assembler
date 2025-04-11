@@ -177,11 +177,11 @@ fi
 if [ "$debugmode" == "" ]; then
     echo "[SCAFFOLD: STEP 2-2] Joining scaffolds"
     echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
-    python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt
+    python join_scaffold.py $oldtemp/iter1_1.fa $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $$oldtemp/iter1_2.fa $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt
 else
     echo "[SCAFFOLD: STEP 2-2] Joining scaffolds <DEBUG>"
     echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
-    python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir/debug_2.txt> $tempdir/identity.txt
+    python join_scaffold.py $oldtemp/iter1_1.fa $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $$oldtemp/iter1_2.fa $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir/debug_2.txt> $tempdir/identity.txt
 fi
 
 echo "[SCAFFOLD: STEP 3-2] Mapping long reads"
