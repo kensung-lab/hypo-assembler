@@ -41,7 +41,11 @@ typedef tuple<uint32_t, uint8_t, uint32_t, uint8_t> hash_key;
 
 struct key_hash : public std::unary_function<hash_key, std::size_t> {
     std::size_t operator()(const hash_key & k) const {
-        return std::get<0>(k) ^ std::get<1>(k) ^ std::get<2>(k) ^ std::get<3>(k);
+        size_t seed = hash<uint32_t>()(get<0>(k));
+        seed ^= hash<uint32_t>()(get<2>(k)) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+        seed ^= hash<uint8_t>()(get<1>(k)) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+        seed ^= hash<uint8_t>()(get<3>(k)) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+        return seed;
     }
 };
 
