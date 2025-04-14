@@ -37,6 +37,14 @@ unsigned char seq_nt4_table[256] = {
         4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
+typedef tuple<uint32_t, uint8_t, uint32_t, uint8_t> hash_key;
+
+struct key_hash : public std::unary_function<hash_key, std::size_t> {
+    std::size_t operator()(const hash_key & k) const {
+        return std::get<0>(k) ^ std::get<1>(k) ^ std::get<2>(k) ^ std::get<3>(k);
+    }
+};
+
 int main(int argc, char* argv[]) {
     auto start_time = chrono::high_resolution_clock::now();
     
@@ -165,6 +173,7 @@ int main(int argc, char* argv[]) {
     
     chrono::duration<double, milli> time_diff = current_time - begin_time;
     chrono::duration<double, milli> time_from_start = current_time - start_time;
+    chrono::duration<double, milli> total_time_scan, total_time_paired, total_time_hash_table;
     
     cerr << "Processing contigs done: " << kmer_counter.size() << endl;
     cerr << "Processing contigs time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
@@ -192,7 +201,7 @@ int main(int argc, char* argv[]) {
     seq = kseq_init(fp);
     
     // contig 1, orientation 1, contig 2, orientation 2
-    map<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, uint32_t> matching_contigs;
+    unordered_map<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, uint32_t, key_hash> matching_contigs;
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
     
     uint64_t total_reads = 0;
@@ -204,8 +213,7 @@ int main(int argc, char* argv[]) {
     
     begin_time = chrono::high_resolution_clock::now();
     
-    
-    set<tuple<uint32_t, uint8_t, uint32_t, uint8_t> > to_add;
+    unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
@@ -213,6 +221,8 @@ int main(int argc, char* argv[]) {
         int count_kmer = 0;
         int previous_solid = -1;
         uint64_t previous_kmer;
+        
+        auto start_set_time = chrono::high_resolution_clock::now();
         
         current_contigs.clear();
         for(uint32_t i = 0; i < seq->seq.l; i++) {
@@ -234,11 +244,14 @@ int main(int argc, char* argv[]) {
             }
         }
         
+        auto after_read_scan_time = chrono::high_resolution_clock::now();
+        
         to_add.clear();
         for(int i = 0; i < current_contigs.size(); i++) {
             for(int j = i + 1; j < current_contigs.size(); j++) {
                 uint32_t contig_i = get<0>(current_contigs[i]);
                 uint32_t contig_j = get<0>(current_contigs[j]);
+                
                 if(contig_i != contig_j) {
                     uint8_t orientation_i = get<1>(current_contigs[i]);
                     uint8_t orientation_j = get<1>(current_contigs[j]);
@@ -248,17 +261,25 @@ int main(int argc, char* argv[]) {
             }
         }
         
+        auto after_all_pairs_time = chrono::high_resolution_clock::now();
+        
         for(auto & x : to_add) matching_contigs[x]++;
         
-        current_time = chrono::high_resolution_clock::now();
-        time_diff = current_time - begin_time;
-        time_from_start = current_time - start_time;
         
         total_reads++;
-        if(total_reads % 100 == 0) {
+        if(total_reads % 1000 == 0) {
+            current_time = chrono::high_resolution_clock::now();
+            time_diff = current_time - begin_time;
+            time_from_start = current_time - start_time;
+            
+            total_time_scan += after_read_scan_time - start_set_time;
+            total_time_paired += after_all_pairs_time - after_read_scan_time;
+            total_time_hash_table += current_time - after_all_pairs_time;
+        
             cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
             cerr << "Size of kmers: " << current_contigs.size() << ". Size of to add: " << to_add.size() << endl;
             cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
+            cerr << "Part times: " << total_time_scan.count() << " " << total_time_paired.count() << " " << total_time_hash_table.count() << endl;
         }
     }
     cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
