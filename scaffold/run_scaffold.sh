@@ -140,7 +140,7 @@ else
     python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir/debug_2.txt > $tempdir/identity.txt
 fi
 
-echo "[SCAFFOLD: STEP 3] Mapping long reads"
+echo "[SCAFFOLD: STEP 3.1] Mapping long reads"
 echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
 minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
 echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam"
@@ -151,40 +151,48 @@ echo "samtools index -@ $threads $tempdir/map2.sorted.bam"
 samtools index -@ $threads $tempdir/map2.sorted.bam
 
 if [ "$debugmode" == "" ]; then
-    echo "[SCAFFOLD: STEP 4] Finalization"
+    echo "[SCAFFOLD: STEP 3.2] Filtering scaffolds"
     echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam $tempdir/iter1_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam $tempdir/iter1_2"
     python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam $tempdir/iter1_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam $tempdir/iter1_2
 else
-    echo "[SCAFFOLD: STEP 4] Finalization"
+    echo "[SCAFFOLD: STEP 3.2] Filtering scaffolds"
     echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam $tempdir/iter1_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam $tempdir/iter1_2 $tempdir/debug_3.txt"
     python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam $tempdir/iter1_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam $tempdir/iter1_2 $tempdir/debug_3.txt 2>&1 | tee -a $tempdir/runscaffold.log
 fi
+
+echo "[SCAFFOLD: STEP 3.5] Removing duplicates"
+minimap2 -ax asm5 -t $threads $tempdir/iter1_1.fa $tempdir/iter1_1.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/all_vs_all.bam
+minimap2 -ax asm5 -t $threads $tempdir/iter1_2.fa $tempdir/iter1_2.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/all_vs_all2.bam
+mv $tempdir/iter1_1.fa $tempdir/iter1_1_before_duplicate.fa
+mv $tempdir/iter1_2.fa $tempdir/iter1_2_before_duplicate.fa
+python remove_duplicates.py $tempdir/iter1_1_before_duplicate.fa $tempdir/all_vs_all.bam $tempdir/iter1_1.fa
+python remove_duplicates.py $tempdir/iter1_2_before_duplicate.fa $tempdir/all_vs_all.bam $tempdir/iter1_2.fa
 
 mkdir -p $tempdir/iter2
 oldtemp=$tempdir
 tempdir=$tempdir/iter2
 
 if [ "$debugmode" == "" ]; then
-    echo "[SCAFFOLD: STEP 1-2] Finding scaffolds"
+    echo "[SCAFFOLD: STEP 4.1] Finding scaffolds"
     echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
     ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
 else
-    echo "[SCAFFOLD: STEP 1-2] Finding scaffolds <DEBUG>"
+    echo "[SCAFFOLD: STEP 4.1] Finding scaffolds <DEBUG>"
     echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
     ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $longreads $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
 fi
 
 if [ "$debugmode" == "" ]; then
-    echo "[SCAFFOLD: STEP 2-2] Joining scaffolds"
+    echo "[SCAFFOLD: STEP 4.2] Joining scaffolds"
     echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
     python join_scaffold.py $oldtemp/iter1_1.fa $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $oldtemp/iter1_2.fa $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt
 else
-    echo "[SCAFFOLD: STEP 2-2] Joining scaffolds <DEBUG>"
+    echo "[SCAFFOLD: STEP 4.2] Joining scaffolds <DEBUG>"
     echo "python join_scaffold.py $contigs $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $contigs2 $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl > $tempdir/identity.txt"
     python join_scaffold.py $oldtemp/iter1_1.fa $tempdir/scaffold.txt $tempdir/intermediate.fa $tempdir/obj.pkl $tempdir $oldtemp/iter1_2.fa $tempdir/scaffold2.txt $tempdir/intermediate2.fa $tempdir/obj2.pkl $tempdir/debug_2.txt> $tempdir/identity.txt
 fi
 
-echo "[SCAFFOLD: STEP 3-2] Mapping long reads"
+echo "[SCAFFOLD: STEP 4.3.1] Mapping long reads"
 echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
 minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
 echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam"
@@ -195,11 +203,19 @@ echo "samtools index -@ $threads $tempdir/map2.sorted.bam"
 samtools index -@ $threads $tempdir/map2.sorted.bam
 
 if [ "$debugmode" == "" ]; then
-    echo "[SCAFFOLD: STEP 4-2] Finalization"
+    echo "[SCAFFOLD: STEP 4.3.2] Filtering scaffolds"
     echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2"
-    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2
+    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam $tempdir/iter2_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam $tempdir/iter2_2
 else
-    echo "[SCAFFOLD: STEP 4-2] Finalization"
+    echo "[SCAFFOLD: STEP 4.3.2] Filtering scaffolds"
     echo "python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2 debug_3.txt"
-    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam ${prefix}_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam ${prefix}_2 $tempdir/debug_3.txt 2>&1 | tee -a $tempdir/runscaffold.log
+    python filter_scaffold.py $tempdir/obj.pkl $tempdir/map.sorted.bam $tempdir/iter2_1 $tempdir/obj2.pkl $tempdir/map2.sorted.bam $tempdir/iter2_2 $tempdir/debug_3.txt 2>&1 | tee -a $tempdir/runscaffold.log
 fi
+
+echo "[SCAFFOLD: STEP 4.3.5] Removing duplicates"
+minimap2 -ax asm5 -t $threads $tempdir/iter2_1.fa $tempdir/iter2_1.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/all_vs_all.bam
+minimap2 -ax asm5 -t $threads $tempdir/iter2_2.fa $tempdir/iter2_2.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/all_vs_all2.bam
+mv $tempdir/iter2_1.fa $tempdir/iter2_1_before_duplicate.fa
+mv $tempdir/iter2_2.fa $tempdir/iter2_2_before_duplicate.fa
+python remove_duplicates.py $tempdir/iter2_1_before_duplicate.fa $tempdir/all_vs_all.bam ${prefix}_1.fa
+python remove_duplicates.py $tempdir/iter2_2_before_duplicate.fa $tempdir/all_vs_all.bam ${prefix}_2.fa
