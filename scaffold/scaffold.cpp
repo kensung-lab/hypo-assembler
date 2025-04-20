@@ -12,6 +12,7 @@
 #include <htslib/kseq.h>
 #include <htslib/kstring.h>
 #include <omp.h>
+#include <sys/stat.h>
 // #include <sdsl/bit_vectors.hpp>
 // #include <sdsl/util.hpp>
 #include "CustomBitvector.hpp"
@@ -110,6 +111,12 @@ int main(int argc, char* argv[]) {
     unordered_set<uint64_t> solid_kmers;
     
     cerr << "Reading kmers from " << argv[2] << "." << endl;
+    struct stat buffer;
+    if(stat(argv[2], &buffer) != 0) {
+        cerr << "Error, " << string(argv[2]) << " does not exist!" << endl;
+        return 1;
+    }
+    
     CustomBitvector bv_sd(1ULL<<(2*k));
     bv_sd.load(argv[2]);
     auto get_ones = bv_sd.count();
@@ -130,6 +137,11 @@ int main(int argc, char* argv[]) {
     
     auto begin_time = chrono::high_resolution_clock::now();
     cerr << "Processing contigs from " << argv[3] << "." << endl;
+    if(stat(argv[3], &buffer) != 0) {
+        cerr << "Error, " << string(argv[3]) << " does not exist!" << endl;
+        return 1;
+    }
+    
     gzFile fp = gzopen(argv[3], "r");
     kseq_t *seq;
     seq = kseq_init(fp);
@@ -201,6 +213,11 @@ int main(int argc, char* argv[]) {
     }
     
     cerr << "Processing reads from " << argv[5] << "." << endl;
+    if(stat(argv[5], &buffer) != 0) {
+        cerr << "Error, " << string(argv[5]) << " does not exist!" << endl;
+        return 1;
+    }
+    
     fp = gzopen(argv[5], "r");
     seq = kseq_init(fp);
     
@@ -595,6 +612,11 @@ int main(int argc, char* argv[]) {
     
     begin_time = chrono::high_resolution_clock::now();
     cerr << "Processing contigs from " << argv[4] << "." << endl;
+    if(stat(argv[4], &buffer) != 0) {
+        cerr << "Error, " << string(argv[4]) << " does not exist!" << endl;
+        return 1;
+    }
+    
     fp = gzopen(argv[4], "r");
     seq = kseq_init(fp);
     
@@ -663,6 +685,10 @@ int main(int argc, char* argv[]) {
     }
     
     cerr << "Processing reads from " << argv[5] << "." << endl;
+    if(stat(argv[5], &buffer) != 0) {
+        cerr << "Error, " << string(argv[5]) << " does not exist!" << endl;
+        return 1;
+    }
     fp = gzopen(argv[5], "r");
     seq = kseq_init(fp);
     
