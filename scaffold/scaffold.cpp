@@ -51,6 +51,8 @@ struct key_hash : public std::unary_function<hash_key, std::size_t> {
 };
 
 int main(int argc, char* argv[]) {
+    size_t THRESHOLD_END_OF_CONTIG = 10000;
+    
     auto start_time = chrono::high_resolution_clock::now();
     
     if(argc < 8) {
@@ -164,7 +166,7 @@ int main(int argc, char* argv[]) {
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
                     count_kmers++;
-                    if(bv_sd[kmer[z]] && (i <= 100000 || i >= seq->seq.l - 100000) ) {
+                    if(bv_sd[kmer[z]] && (i <= THRESHOLD_END_OF_CONTIG || i >= seq->seq.l - THRESHOLD_END_OF_CONTIG) ) {
                         //found a solid kmer, do something here
                         current_contig_solids[kmer[z]].push_back(make_tuple(z, i));
                         kmer_counter[kmer[z]]++;
@@ -637,7 +639,7 @@ int main(int argc, char* argv[]) {
                 int z = kmer[0] < kmer[1] ? 0 : 1;
                 if(count_not_N >= k) {
                     count_kmers++;
-                    if(bv_sd[kmer[z]] && (i <= 100000 || i >= seq->seq.l - 100000) ) {
+                    if(bv_sd[kmer[z]] && (i <= THRESHOLD_END_OF_CONTIG || i >= seq->seq.l - THRESHOLD_END_OF_CONTIG) ) {
                         //found a solid kmer, do something here
                         current_contig_solids[kmer[z]].push_back(make_tuple(z, i));
                         kmer_counter[kmer[z]]++;
