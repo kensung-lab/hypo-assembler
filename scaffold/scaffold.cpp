@@ -228,15 +228,13 @@ int main(int argc, char* argv[]) {
     uint64_t minkmer, maxkmer, tempkmer1, tempkmer2;
     
     uint64_t total_reads = 0;
-    uint64_t read_total_kmers = 0;
     
     // kmer, orientation
-    vector<tuple<uint64_t, uint8_t> > current_contigs;
     uint32_t count_solid = 0;
     
     begin_time = chrono::high_resolution_clock::now();
     
-    unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
+    vector<string> bundle_process;
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
@@ -247,47 +245,55 @@ int main(int argc, char* argv[]) {
         
         auto start_set_time = chrono::high_resolution_clock::now();
         
-        current_contigs.clear();
-        for(uint32_t i = 0; i < seq->seq.l; i++) {
-            int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
-            if(c < 4) {
-                kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
-                kmer[1] = (kmer[1] >> 2ull) | (3ULL^c) << shift1; // reverse k-mer
-                count_not_N++;
-                int z = kmer[0] < kmer[1] ? 0 : 1;
-                if(count_not_N >= k) {
-                    count_kmer += 1;
-                    if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
-                        read_total_kmers++;
-                        current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+        bundle_process.push_back(seq->seq.s);
+        
+        if(bundle_process.size() == 1000) {
+            #pragma omp parallel for
+            for(size_t j = 0; j < bundle_process.size(); j++) {
+                string get_seq = bundle_process[j];
+                vector<tuple<uint64_t, uint8_t> > current_contigs;
+                for(uint32_t i = 0; i < get_seq.size(); i++) {
+                    int c = seq_nt4_table[(uint8_t)get_seq[i]];
+                    if(c < 4) {
+                        kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
+                        kmer[1] = (kmer[1] >> 2ull) | (3ULL^c) << shift1; // reverse k-mer
+                        count_not_N++;
+                        int z = kmer[0] < kmer[1] ? 0 : 1;
+                        if(count_not_N >= k) {
+                            count_kmer += 1;
+                            if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
+                                current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+                            }
+                        }
+                    } else {
+                        count_not_N = 0;
                     }
                 }
-            } else {
-                count_not_N = 0;
-            }
-        }
-        
-        auto after_read_scan_time = chrono::high_resolution_clock::now();
-        
-        to_add.clear();
-        for(int i = 0; i < current_contigs.size(); i++) {
-            for(int j = i + 1; j < current_contigs.size(); j++) {
-                uint32_t contig_i = get<0>(current_contigs[i]);
-                uint32_t contig_j = get<0>(current_contigs[j]);
                 
-                if(contig_i != contig_j) {
-                    uint8_t orientation_i = get<1>(current_contigs[i]);
-                    uint8_t orientation_j = get<1>(current_contigs[j]);
-                    
-                    to_add.insert(make_tuple(contig_i, orientation_i, contig_j, orientation_j));
+                auto after_read_scan_time = chrono::high_resolution_clock::now();
+                
+                unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
+                for(int i = 0; i < current_contigs.size(); i++) {
+                    for(int j = i + 1; j < current_contigs.size(); j++) {
+                        uint32_t contig_i = get<0>(current_contigs[i]);
+                        uint32_t contig_j = get<0>(current_contigs[j]);
+                        
+                        if(contig_i != contig_j) {
+                            uint8_t orientation_i = get<1>(current_contigs[i]);
+                            uint8_t orientation_j = get<1>(current_contigs[j]);
+                            
+                            to_add.insert(make_tuple(contig_i, orientation_i, contig_j, orientation_j));
+                        }
+                    }
                 }
+                
+                auto after_all_pairs_time = chrono::high_resolution_clock::now();
+                
+                #pragma omp critical
+                for(auto & x : to_add) matching_contigs[x]++;
             }
         }
-        
-        auto after_all_pairs_time = chrono::high_resolution_clock::now();
-        
-        for(auto & x : to_add) matching_contigs[x]++;
-        
+        bundle_process.clear();
         
         total_reads++;
         if(total_reads % 1000 == 0) {
@@ -295,18 +301,10 @@ int main(int argc, char* argv[]) {
             time_diff = current_time - begin_time;
             time_from_start = current_time - start_time;
             
-            total_time_scan += after_read_scan_time - start_set_time;
-            total_time_paired += after_all_pairs_time - after_read_scan_time;
-            total_time_hash_table += current_time - after_all_pairs_time;
-        
             cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
-            cerr << "Size of kmers: " << current_contigs.size() << ". Size of to add: " << to_add.size() << endl;
             cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
-            cerr << "Part times: " << total_time_scan.count() << " " << total_time_paired.count() << " " << total_time_hash_table.count() << endl;
         }
     }
-    cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
-    
     // go through the reads again to get the sequences, check if can get consensus!
     
     cerr << "Finding scaffolds" << endl;
@@ -698,16 +696,11 @@ int main(int argc, char* argv[]) {
     matching_contigs.clear();
     
     total_reads = 0;
-    read_total_kmers = 0;
     
     // kmer, orientation
-    current_contigs.clear();
     count_solid = 0;
     
     begin_time = chrono::high_resolution_clock::now();
-    
-    
-    to_add.clear();
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
@@ -716,55 +709,70 @@ int main(int argc, char* argv[]) {
         int previous_solid = -1;
         uint64_t previous_kmer;
         
-        current_contigs.clear();
-        for(uint32_t i = 0; i < seq->seq.l; i++) {
-            int c = seq_nt4_table[(uint8_t)seq->seq.s[i]];
-            if(c < 4) {
-                kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
-                kmer[1] = (kmer[1] >> 2ull) | (3ULL^c) << shift1; // reverse k-mer
-                count_not_N++;
-                int z = kmer[0] < kmer[1] ? 0 : 1;
-                if(count_not_N >= k) {
-                    count_kmer += 1;
-                    if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
-                        read_total_kmers++;
-                        current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+        auto start_set_time = chrono::high_resolution_clock::now();
+        
+        bundle_process.push_back(seq->seq.s);
+        
+        if(bundle_process.size() == 1000) {
+            #pragma omp parallel for
+            for(size_t j = 0; j < bundle_process.size(); j++) {
+                string get_seq = bundle_process[j];
+                vector<tuple<uint64_t, uint8_t> > current_contigs;
+                for(uint32_t i = 0; i < get_seq.size(); i++) {
+                    int c = seq_nt4_table[(uint8_t)get_seq[i]];
+                    if(c < 4) {
+                        kmer[0] = (kmer[0] << 2ull | c) & mask;           // forward k-mer
+                        kmer[1] = (kmer[1] >> 2ull) | (3ULL^c) << shift1; // reverse k-mer
+                        count_not_N++;
+                        int z = kmer[0] < kmer[1] ? 0 : 1;
+                        if(count_not_N >= k) {
+                            count_kmer += 1;
+                            if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
+                                current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+                            }
+                        }
+                    } else {
+                        count_not_N = 0;
                     }
                 }
-            } else {
-                count_not_N = 0;
-            }
-        }
-        
-        to_add.clear();
-        for(int i = 0; i < current_contigs.size(); i++) {
-            for(int j = i + 1; j < current_contigs.size(); j++) {
-                uint32_t contig_i = get<0>(current_contigs[i]);
-                uint32_t contig_j = get<0>(current_contigs[j]);
-                if(contig_i != contig_j) {
-                    uint8_t orientation_i = get<1>(current_contigs[i]);
-                    uint8_t orientation_j = get<1>(current_contigs[j]);
-                    
-                    to_add.insert(make_tuple(contig_i, orientation_i, contig_j, orientation_j));
+                
+                auto after_read_scan_time = chrono::high_resolution_clock::now();
+                
+                unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
+                for(int i = 0; i < current_contigs.size(); i++) {
+                    for(int j = i + 1; j < current_contigs.size(); j++) {
+                        uint32_t contig_i = get<0>(current_contigs[i]);
+                        uint32_t contig_j = get<0>(current_contigs[j]);
+                        
+                        if(contig_i != contig_j) {
+                            uint8_t orientation_i = get<1>(current_contigs[i]);
+                            uint8_t orientation_j = get<1>(current_contigs[j]);
+                            
+                            to_add.insert(make_tuple(contig_i, orientation_i, contig_j, orientation_j));
+                        }
+                    }
                 }
+                
+                auto after_all_pairs_time = chrono::high_resolution_clock::now();
+                
+                #pragma omp critical
+                for(auto & x : to_add) matching_contigs[x]++;
             }
         }
         
-        for(auto & x : to_add) matching_contigs[x]++;
-        
-        current_time = chrono::high_resolution_clock::now();
-        time_diff = current_time - begin_time;
-        time_from_start = current_time - start_time;
+        bundle_process.clear();
         
         total_reads++;
         if(total_reads % 1000 == 0) {
+            current_time = chrono::high_resolution_clock::now();
+            time_diff = current_time - begin_time;
+            time_from_start = current_time - start_time;
+            
             cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
-            cerr << "Size of kmers: " << current_contigs.size() << ". Size of to add: " << to_add.size() << endl;
             cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
+            cerr << "Part times: " << total_time_scan.count() << " " << total_time_paired.count() << " " << total_time_hash_table.count() << endl;
         }
     }
-    cerr << "Found " << read_total_kmers << " out of " << total_reads << endl;
-    
     // go through the reads again to get the sequences, check if can get consensus!
     
     cerr << "Finding scaffolds" << endl;
