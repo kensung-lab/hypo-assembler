@@ -58,8 +58,7 @@ for qn, get_contig in sorted_contigs:
         a = "_".join(qn.split("_")[:-2])
         b = "_".join(previous_qn.split("_")[:-2])
         
-        hap_code += qn.split("_")[-1]
-        
+        hap_code = qn.split("_")[-1]
         if a == b:
             current_contig += get_contig
             count_removed += 1
@@ -71,7 +70,7 @@ for qn, get_contig in sorted_contigs:
 
 if previous_qn is not None:
     final_contigs.append(current_contig)
-    
+
 cid = 0
 write_contigs = []
 for contig in final_contigs:
