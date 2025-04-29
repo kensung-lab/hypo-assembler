@@ -14,6 +14,13 @@ contig_filename = sys.argv[1]
 overlap_filename = sys.argv[2]
 output_path = sys.argv[3]
 
+remove_initial_dupe = True
+
+if len(sys.argv) > 4:
+    if sys.argv[4] == '1':
+        remove_initial_dupe = False
+    
+
 print("Loading contigs")
 
 contigs = {}
@@ -49,27 +56,31 @@ previous_qn = None
 current_contig = ""
 hap_code = "_1"
 
-count_removed = 0
-for qn, get_contig in sorted_contigs:
-    if previous_qn is None:
-        previous_qn = qn
-        current_contig = get_contig
-    else:
-        a = "_".join(qn.split("_")[:-2])
-        b = "_".join(previous_qn.split("_")[:-2])
-        
-        hap_code = qn.split("_")[-1]
-        if a == b:
-            current_contig += get_contig
-            count_removed += 1
-        else:
-            final_contigs.append(current_contig)
+if remove_initial_dupe:
+    count_removed = 0
+    for qn, get_contig in sorted_contigs:
+        if previous_qn is None:
             previous_qn = qn
             current_contig = get_contig
+        else:
+            a = "_".join(qn.split("_")[:-2])
+            b = "_".join(previous_qn.split("_")[:-2])
+            
+            hap_code = qn.split("_")[-1]
+            if a == b:
+                current_contig += get_contig
+                count_removed += 1
+            else:
+                final_contigs.append(current_contig)
+                previous_qn = qn
+                current_contig = get_contig
 
 
-if previous_qn is not None:
-    final_contigs.append(current_contig)
+    if previous_qn is not None:
+        final_contigs.append(current_contig)
+else:
+    for qn, get_contig in sorted_contigs:
+        final_contigs.append(get_contig)
 
 cid = 0
 write_contigs = []

@@ -249,6 +249,6 @@ if (( $(echo "$stage <= 7.5" | bc -l) )); then
     minimap2 -ax asm5 -t $threads $tempdir/iter2_2.fa $tempdir/iter2_2.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/all_vs_all2.bam
     mv $tempdir/iter2_1.fa $tempdir/iter2_1_before_duplicate.fa
     mv $tempdir/iter2_2.fa $tempdir/iter2_2_before_duplicate.fa
-    python remove_duplicates.py $tempdir/iter2_1_before_duplicate.fa $tempdir/all_vs_all.bam ${prefix}_1.fa
-    python remove_duplicates.py $tempdir/iter2_2_before_duplicate.fa $tempdir/all_vs_all.bam ${prefix}_2.fa
+    python remove_duplicates.py $tempdir/iter2_1_before_duplicate.fa $tempdir/all_vs_all.bam ${prefix}_1.fa 1
+    python remove_duplicates.py $tempdir/iter2_2_before_duplicate.fa $tempdir/all_vs_all.bam ${prefix}_2.fa 1
 fi
