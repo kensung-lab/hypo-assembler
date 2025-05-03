@@ -74,13 +74,13 @@ if remove_initial_dupe:
                 final_contigs.append(current_contig)
                 previous_qn = qn
                 current_contig = get_contig
-
-
     if previous_qn is not None:
-        final_contigs.append(current_contig)
+        if len(current_contig) >= 10000:
+            final_contigs.append(current_contig)
 else:
     for qn, get_contig in sorted_contigs:
-        final_contigs.append(get_contig)
+        if len(get_contig) >= 10000:
+            final_contigs.append(get_contig)
 
 cid = 0
 write_contigs = []

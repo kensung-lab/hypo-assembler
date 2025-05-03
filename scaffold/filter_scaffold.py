@@ -29,7 +29,7 @@ final_aux = []
 unmerged_contigs = set()
 
 SUPPORT_THRESHOLD = 3
-LENGTH_THRESHOLD = 10
+LENGTH_THRESHOLD = 100
 
 count = 0
 

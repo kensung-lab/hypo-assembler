@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
         bundle_process.push_back(seq->seq.s);
         
         if(bundle_process.size() == 1000) {
-            #pragma omp parallel for
+            #pragma omp parallel for num_threads(thread_count)
             for(size_t j = 0; j < bundle_process.size(); j++) {
                 string get_seq = bundle_process[j];
                 vector<tuple<uint64_t, uint8_t> > current_contigs;
@@ -290,7 +290,9 @@ int main(int argc, char* argv[]) {
                 auto after_all_pairs_time = chrono::high_resolution_clock::now();
                 
                 #pragma omp critical
-                for(auto & x : to_add) matching_contigs[x]++;
+                {
+                    for(auto & x : to_add) matching_contigs[x]++;
+                }
             }
         }
         bundle_process.clear();
