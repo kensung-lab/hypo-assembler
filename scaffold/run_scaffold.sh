@@ -199,11 +199,11 @@ if (( $(echo "$stage <= 5" | bc -l) )); then
     if [ "$debugmode" == "" ]; then
         echo "[SCAFFOLD: STEP 5] Finding scaffolds"
         echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
-        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
+        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $oldtemp/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
     else
         echo "[SCAFFOLD: STEP 5] Finding scaffolds <DEBUG>"
         echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
-        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
+        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $oldtemp/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
     fi
 fi
 
