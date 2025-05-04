@@ -222,9 +222,9 @@ fi
 if (( $(echo "$stage <= 7.1" | bc -l) )); then
     echo "[SCAFFOLD: STEP 7.1] Mapping long reads"
     echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
-    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $tempdir/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
+    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $oldtemp/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
     echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam"
-    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $tempdir/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam
+    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $oldtemp/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam
     echo "samtools index -@ $threads $tempdir/map.sorted.bam"
     samtools index -@ $threads $tempdir/map.sorted.bam
     echo "samtools index -@ $threads $tempdir/map2.sorted.bam"
