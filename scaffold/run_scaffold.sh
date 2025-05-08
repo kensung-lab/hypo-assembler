@@ -131,12 +131,12 @@ if (( $(echo "$stage <= 1" | bc -l) )); then
     if [ "$debugmode" == "" ]; then
         echo "[SCAFFOLD: STEP 1] Finding scaffolds"
         echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
-        ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
+        ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $tempdir/filtered_solid_reads.fa $threads $filter
     else
         touch $tempdir/runscaffold.log
         echo "[SCAFFOLD: STEP 1] Finding scaffolds <DEBUG>"
         echo "./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
-        ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
+        ./find_scaffold $kmerlen $solids $contigs $contigs2 $tempdir/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $tempdir/filtered_solid_reads.fa $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
     fi
 fi
 
@@ -155,9 +155,9 @@ fi
 if (( $(echo "$stage <= 3.1" | bc -l) )); then
     echo "[SCAFFOLD: STEP 3.1] Mapping long reads"
     echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
-    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $tempdir/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
+    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $tempdir/filtered_solid_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
     echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam"
-    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $tempdir/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam
+    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $tempdir/filtered_solid_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam
     echo "samtools index -@ $threads $tempdir/map.sorted.bam"
     samtools index -@ $threads $tempdir/map.sorted.bam
     echo "samtools index -@ $threads $tempdir/map2.sorted.bam"
@@ -199,11 +199,11 @@ if (( $(echo "$stage <= 5" | bc -l) )); then
     if [ "$debugmode" == "" ]; then
         echo "[SCAFFOLD: STEP 5] Finding scaffolds"
         echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter"
-        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $oldtemp/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter
+        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $oldtemp/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $tempdir/filtered_solid_reads.fa $threads $filter
     else
         echo "[SCAFFOLD: STEP 5] Finding scaffolds <DEBUG>"
         echo "./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt"
-        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $oldtemp/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
+        ./find_scaffold $kmerlen $solids $oldtemp/iter1_1.fa $oldtemp/iter1_2.fa $oldtemp/filtered_reads.fa $tempdir/scaffold.txt $tempdir/scaffold2.txt $tempdir/filtered_solid_reads.fa $threads $filter $tempdir/debug.txt 2>&1 | tee -a $tempdir/runscaffold.log
     fi
 fi
 
@@ -222,9 +222,9 @@ fi
 if (( $(echo "$stage <= 7.1" | bc -l) )); then
     echo "[SCAFFOLD: STEP 7.1] Mapping long reads"
     echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam"
-    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $oldtemp/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
+    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate.fa $oldtemp/filtered_solid_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map.sorted.bam
     echo "minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $longreads | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam"
-    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $oldtemp/filtered_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam
+    minimap2 -I 64G -ax map-$readtype -t $threads $tempdir/intermediate2.fa $oldtemp/filtered_solid_reads.fa | samtools view -bS | samtools sort -@ $sortthreads -m $sortmem -o $tempdir/map2.sorted.bam
     echo "samtools index -@ $threads $tempdir/map.sorted.bam"
     samtools index -@ $threads $tempdir/map.sorted.bam
     echo "samtools index -@ $threads $tempdir/map2.sorted.bam"

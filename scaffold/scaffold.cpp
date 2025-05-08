@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
     auto start_time = chrono::high_resolution_clock::now();
     
     if(argc < 8) {
-        cerr << "Usage: " << argv[0] << " <k> <kmers input> <contigs 1 fasta> <contigs 2 fasta> <long reads> <output 1> <output 2> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)> <optional: debug_output>" << endl;
+        cerr << "Usage: " << argv[0] << " <k> <kmers input> <contigs 1 fasta> <contigs 2 fasta> <long reads> <output 1> <output 2> <reads output> <optional: thread count (default=1)> <optional: remove >2 occurence solid kmers (1/0) (default=0)> <optional: debug_output>" << endl;
         return 1;
     }
     cerr << "Command: ";
@@ -66,13 +66,15 @@ int main(int argc, char* argv[]) {
     bool is_debug = false;
     ofstream out_debug;
     
-    if(argc > 10) {
+    ofstream out_reads(argv[8]);;
+    
+    if(argc > 11) {
         is_debug = true;
     }
     
     if(is_debug) {
         try {
-            out_debug.open(argv[10]);
+            out_debug.open(argv[11]);
         } catch(exception const &e) {
             cerr << "Can't open file" << endl;
             cerr << e.what() << endl;
@@ -83,14 +85,14 @@ int main(int argc, char* argv[]) {
     
     int thread_count = 1;
     try {
-        thread_count = stoi(argv[8]);
+        thread_count = stoi(argv[9]);
     } catch(exception const &e) {
         cerr << "Thread count need to be int. Defaults to 1" << endl;
     }
     
     int remove_dupe = 0;
     try {
-        remove_dupe = stoi(argv[9]);
+        remove_dupe = stoi(argv[10]);
     } catch(exception const &e) {
         cerr << "Remove > 2 solids defaults to 0 (no)." << endl;
     }
@@ -230,26 +232,30 @@ int main(int argc, char* argv[]) {
     uint64_t total_reads = 0;
     
     // kmer, orientation
-    uint32_t count_solid = 0;
     
     begin_time = chrono::high_resolution_clock::now();
     
     vector<string> bundle_process;
+    vector<string> read_names;
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
-        int count_not_N = 0;
-        int count_kmer = 0;
-        int previous_solid = -1;
-        uint64_t previous_kmer;
-        
         auto start_set_time = chrono::high_resolution_clock::now();
         
         bundle_process.push_back(seq->seq.s);
+        read_names.push_back(read_name);
+        
         
         if(bundle_process.size() == 1000) {
             #pragma omp parallel for num_threads(thread_count)
             for(size_t j = 0; j < bundle_process.size(); j++) {
+                int count_not_N = 0;
+                int count_kmer = 0;
+                int previous_solid = -1;
+                uint64_t previous_kmer;
+                uint32_t count_solid = 0;
+                uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
+                
                 string get_seq = bundle_process[j];
                 vector<tuple<uint64_t, uint8_t> > current_contigs;
                 for(uint32_t i = 0; i < get_seq.size(); i++) {
@@ -261,15 +267,15 @@ int main(int argc, char* argv[]) {
                         int z = kmer[0] < kmer[1] ? 0 : 1;
                         if(count_not_N >= k) {
                             count_kmer += 1;
-                            if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
+                            if(bv_sd[kmer[z]] && kmer_counter.find(kmer[z]) != kmer_counter.end()) {
                                 current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+                                count_solid += 1;
                             }
                         }
                     } else {
                         count_not_N = 0;
                     }
                 }
-                
                 
                 unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
                 for(int i = 0; i < current_contigs.size(); i++) {
@@ -289,13 +295,15 @@ int main(int argc, char* argv[]) {
                 #pragma omp critical
                 {
                     for(auto & x : to_add) matching_contigs[x]++;
+                    if(count_solid >= 10) {
+                        out_reads << ">" << read_names[j] << "\n" << bundle_process[j] << "\n";
+                    }
                 }
             }
-        }
-        bundle_process.clear();
-        
-        total_reads++;
-        if(total_reads % 1000 == 0) {
+            bundle_process.clear();
+            read_names.clear();
+            
+            total_reads += 1000;
             current_time = chrono::high_resolution_clock::now();
             time_diff = current_time - begin_time;
             time_from_start = current_time - start_time;
@@ -305,6 +313,7 @@ int main(int argc, char* argv[]) {
         }
     }
     // go through the reads again to get the sequences, check if can get consensus!
+    out_reads.close();
     
     cerr << "Finding scaffolds" << endl;
     
@@ -697,24 +706,27 @@ int main(int argc, char* argv[]) {
     total_reads = 0;
     
     // kmer, orientation
-    count_solid = 0;
     
     begin_time = chrono::high_resolution_clock::now();
     
     while((l = kseq_read(seq)) >= 0) {
         string read_name = seq->name.s;
-        int count_not_N = 0;
-        int count_kmer = 0;
-        int previous_solid = -1;
-        uint64_t previous_kmer;
-        
         auto start_set_time = chrono::high_resolution_clock::now();
         
         bundle_process.push_back(seq->seq.s);
+        read_names.push_back(read_name);
+        
         
         if(bundle_process.size() == 1000) {
-            #pragma omp parallel for
+            #pragma omp parallel for num_threads(thread_count)
             for(size_t j = 0; j < bundle_process.size(); j++) {
+                int count_not_N = 0;
+                int count_kmer = 0;
+                int previous_solid = -1;
+                uint64_t previous_kmer;
+                uint32_t count_solid = 0;
+                uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
+                
                 string get_seq = bundle_process[j];
                 vector<tuple<uint64_t, uint8_t> > current_contigs;
                 for(uint32_t i = 0; i < get_seq.size(); i++) {
@@ -726,15 +738,15 @@ int main(int argc, char* argv[]) {
                         int z = kmer[0] < kmer[1] ? 0 : 1;
                         if(count_not_N >= k) {
                             count_kmer += 1;
-                            if(bv_sd[kmer[z]] && kmer_counter[kmer[z]]) {
+                            if(bv_sd[kmer[z]] && kmer_counter.find(kmer[z]) != kmer_counter.end()) {
                                 current_contigs.push_back(make_tuple(get<0>(kmer_locations[kmer[z]]), z ^ get<2>(kmer_locations[kmer[z]])));
+                                count_solid += 1;
                             }
                         }
                     } else {
                         count_not_N = 0;
                     }
                 }
-                
                 
                 unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
                 for(int i = 0; i < current_contigs.size(); i++) {
@@ -752,21 +764,20 @@ int main(int argc, char* argv[]) {
                 }
                 
                 #pragma omp critical
-                for(auto & x : to_add) matching_contigs[x]++;
+                {
+                    for(auto & x : to_add) matching_contigs[x]++;
+                }
             }
-        }
-        
-        bundle_process.clear();
-        
-        total_reads++;
-        if(total_reads % 1000 == 0) {
+            bundle_process.clear();
+            read_names.clear();
+            
+            total_reads += 1000;
             current_time = chrono::high_resolution_clock::now();
             time_diff = current_time - begin_time;
             time_from_start = current_time - start_time;
             
             cerr << "Processed " << total_reads << " reads. Size of matching contigs: " << matching_contigs.size() << endl;
             cerr << "Time: " << time_diff.count() << " , time from start: " << time_from_start.count() << endl;
-            cerr << "Part times: " << total_time_scan.count() << " " << total_time_paired.count() << " " << total_time_hash_table.count() << endl;
         }
     }
     // go through the reads again to get the sequences, check if can get consensus!
