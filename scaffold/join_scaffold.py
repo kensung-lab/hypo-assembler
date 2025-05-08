@@ -152,20 +152,6 @@ for ctg in contigs:
     if ctg not in processed_contigs:
         construct_results.append(SeqRecord(Seq(contigs[ctg]), id=ctg))
 
-old_construct_results = construct_results
-construct_results = []
-old_construct_results.sort(key=lambda x: len(x))
-for i in range(len(old_construct_results) // 2):
-    r1 = old_construct_results[i]
-    r2 = old_construct_results[len(old_construct_results) - i - 1]
-    
-    record_name = r1.id + "_" + r2.id
-    new_seq = r1.seq + r2.seq
-    
-    construct_results.append(SeqRecord(Seq(new_seq), id=record_name))
-
-print(len(old_construct_results), len(construct_results))
-
 SeqIO.write(construct_results, output_path, "fasta")
 
 import pickle
@@ -272,18 +258,6 @@ for p_idx in range(len(pair_to_process)):
 for ctg in contigs:
     if ctg not in processed_contigs:
         construct_results.append(SeqRecord(Seq(contigs[ctg]), id=ctg))
-
-old_construct_results = construct_results
-construct_results = []
-old_construct_results.sort(key=lambda x: len(x))
-for i in range(len(old_construct_results) // 2):
-    r1 = old_construct_results[i]
-    r2 = old_construct_results[len(old_construct_results) - i - 1]
-    
-    record_name = r1.id + "_" + r2.id
-    new_seq = r1.seq + r2.seq
-    
-    construct_results.append(SeqRecord(Seq(new_seq), id=record_name))
 
 SeqIO.write(construct_results, output_path, "fasta")
 

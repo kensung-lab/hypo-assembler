@@ -82,13 +82,21 @@ else:
         if len(get_contig) >= 10000:
             final_contigs.append(get_contig)
 
+old_final_contigs = final_contigs
+final_contigs = []
+old_final_contigs.sort(key=lambda x: len(x))
+for i in range(len(old_final_contigs) // 2):
+    r1 = old_final_contigs[i]
+    r2 = old_final_contigs[len(old_final_contigs) - i - 1]
+    
+    new_seq = r1 + r2
+    
+    final_contigs.append(new_seq)
+
 cid = 0
 write_contigs = []
 for contig in final_contigs:
     write_contigs.append(SeqRecord(Seq(contig), id="contig_%d_%s" % (cid, hap_code), description=""))
     cid += 1
-
-print("Removed ", len(contigs) - len(write_contigs), " duplicated contigs")
-    
     
 SeqIO.write(write_contigs, output_path, "fasta")

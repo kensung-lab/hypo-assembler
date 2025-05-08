@@ -270,7 +270,6 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 
-                auto after_read_scan_time = chrono::high_resolution_clock::now();
                 
                 unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
                 for(int i = 0; i < current_contigs.size(); i++) {
@@ -286,8 +285,6 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-                
-                auto after_all_pairs_time = chrono::high_resolution_clock::now();
                 
                 #pragma omp critical
                 {
@@ -738,7 +735,6 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 
-                auto after_read_scan_time = chrono::high_resolution_clock::now();
                 
                 unordered_set<tuple<uint32_t, uint8_t, uint32_t, uint8_t>, key_hash > to_add;
                 for(int i = 0; i < current_contigs.size(); i++) {
@@ -754,8 +750,6 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-                
-                auto after_all_pairs_time = chrono::high_resolution_clock::now();
                 
                 #pragma omp critical
                 for(auto & x : to_add) matching_contigs[x]++;
