@@ -82,6 +82,18 @@ else:
         if len(get_contig) >= 10000:
             final_contigs.append(get_contig)
     
+    while len(final_contigs) >= 600:
+        old_final_contigs = final_contigs
+        final_contigs = []
+        old_final_contigs.sort(key=lambda x: len(x))
+        for i in range(0, len(old_final_contigs), 2):
+            r1 = old_final_contigs[i]
+            r2 = old_final_contigs[i + 1]
+            
+            new_seq = r1 + r2
+            
+            final_contigs.append(new_seq)
+    
 old_final_contigs = final_contigs
 final_contigs = []
 old_final_contigs.sort(key=lambda x: len(x))
@@ -93,17 +105,7 @@ for i in range(0, len(old_final_contigs), 2):
     
     final_contigs.append(new_seq)
     
-while len(final_contigs) >= 300:
-    old_final_contigs = final_contigs
-    final_contigs = []
-    old_final_contigs.sort(key=lambda x: len(x))
-    for i in range(0, len(old_final_contigs), 2):
-        r1 = old_final_contigs[i]
-        r2 = old_final_contigs[i + 1]
-        
-        new_seq = r1 + r2
-        
-        final_contigs.append(new_seq)
+
     
 cid = 0
 write_contigs = []
