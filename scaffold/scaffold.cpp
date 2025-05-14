@@ -192,7 +192,11 @@ int main(int argc, char* argv[]) {
     if(is_debug) {
         for(auto & x : contig_solids) {
             for(auto & y : x) {
-                out_debug << "DG\t" << get<0>(y) << "\t" << get<1>(y) << "\n";
+                out_debug << "DG\t" << y.first;
+                for(auto & z : y.second) {
+                    out_debug << "\t" << get<0>(z) << "\t" << get<1>(z);
+                }
+                out_debug << "\n";
             }
         }
     }
@@ -227,7 +231,11 @@ int main(int argc, char* argv[]) {
     if(is_debug) {
         for(auto & x : contig_solids) {
             for(auto & y : x) {
-                out_debug << "DG2\t" << get<0>(y) << "\t" << get<1>(y) << "\n";
+                out_debug << "DG\t" << y.first;
+                for(auto & z : y.second) {
+                    out_debug << "\t" << get<0>(z) << "\t" << get<1>(z);
+                }
+                out_debug << "\n";
             }
         }
     }
