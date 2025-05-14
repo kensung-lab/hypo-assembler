@@ -189,6 +189,14 @@ int main(int argc, char* argv[]) {
         total_kmers += current_contig_solids.size();
     }
     
+    if(is_debug) {
+        for(auto & x : contig_solids) {
+            for(auto & y : x) {
+                out_debug << "DG\t" << get<0>(y) << "\t" << get<1>(y) << "\n";
+            }
+        }
+    }
+    
     auto current_time = chrono::high_resolution_clock::now();
     
     chrono::duration<double, milli> time_diff = current_time - begin_time;
@@ -212,6 +220,14 @@ int main(int argc, char* argv[]) {
         for(int i = 0; i < contig_names.size(); i++) {
             for(auto & remove : multi_solid) {
                 contig_solids[i].erase(remove);
+            }
+        }
+    }
+    
+    if(is_debug) {
+        for(auto & x : contig_solids) {
+            for(auto & y : x) {
+                out_debug << "DG2\t" << get<0>(y) << "\t" << get<1>(y) << "\n";
             }
         }
     }
