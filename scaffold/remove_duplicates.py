@@ -48,7 +48,8 @@ for align in aligns:
 sorted_contigs = []
 for qn in contigs:
     if qn not in fully_contained_contigs:
-        sorted_contigs.append((qn, str(contigs[qn].seq)))
+        if len(contigs[qn].seq) >= 10000:
+            sorted_contigs.append((qn, str(contigs[qn].seq)))
 sorted_contigs.sort()
 
 final_contigs = []

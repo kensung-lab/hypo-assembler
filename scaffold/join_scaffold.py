@@ -62,7 +62,6 @@ contigs = {}
 for record in SeqIO.parse(contig_filename, "fasta"):
     contigs[record.id] = str(record.seq)
 
-
 print("Loading overlaps and resolving ordering")
 
 contig_pairs = {}
