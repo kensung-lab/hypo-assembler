@@ -6,7 +6,8 @@ if [ "$1" ]; then
 fi
 
 cd external/install/htslib;
-autoreconf;
+make clean;
+autoreconf -i;
 ./configure --prefix=$(pwd) --disable-bz2 --disable-lzma;
 make -j $threads; make install;
 echo "HTSlib installed."

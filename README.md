@@ -52,6 +52,7 @@ The following optional options are available for build_all.sh
 
 ### Usage
 
+Once you finished running build_all.sh, you can run the script run_all.sh from the build directory (Default: run_all).
 Usage with run_all.sh is as follows:
 
 ```console

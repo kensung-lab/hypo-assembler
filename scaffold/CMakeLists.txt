@@ -52,6 +52,9 @@ set(LIBSOURCES
 add_executable(find_scaffold scaffold.cpp)
 target_link_libraries(find_scaffold hts z sdsl OpenMP::OpenMP_CXX)
 
+add_executable(new_scaffold scaffold_new.cpp)
+target_link_libraries(new_scaffold hts z sdsl OpenMP::OpenMP_CXX)
+
 # add_executable(find_overlap_txt overlap_txt.cpp)
 # target_link_libraries(find_overlap_txt hts z OpenMP::OpenMP_CXX)
 

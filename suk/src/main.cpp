@@ -53,7 +53,7 @@ void usage(void)
                " [DEFAULT: 12].\n";
   std::cout << "  -w, --kmc-dir <str> \t KMC temporary directory."
                " [DEFAULT: tmp/].\n";
-  
+  std::cout << "  -D,  --debug \t Debug mode";
   std::cout << "  -h, --help \t \t \t Prints the usage.\n";
 }
 
@@ -61,12 +61,14 @@ using InputFlags = struct SInputFlags{
     std::vector<std::string> read_filenames;
     std::string output_filename;
     std::string kmc_directory;
+    std::string initialize_file;
     UINT32 threads;
     UINT16 k;
     UINT16 expected_coverage;
     UINT16 kmc_memory;
     bool exclude_hp;
     bool dump_txt; 
+    bool debug_mode;
   };
 
 
@@ -81,6 +83,8 @@ static struct option long_options[] = {
     {"kmc-memory", required_argument, NULL, 'm'},
     {"help", no_argument, NULL, 'h'},
     {"kmc-dir", required_argument, NULL, 'w'},
+    {"debug", no_argument, NULL, 'D'},
+    {"file-start", required_argument, NULL, 'f'},
     {NULL, 0, NULL, 0}};
 
 
@@ -101,12 +105,15 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags)
   flags.kmc_directory = "tmp";
   flags.exclude_hp = false;
   flags.dump_txt = false;
+  flags.debug_mode = false;
+  
+  flags.initialize_file = "";
 
   bool is_i = false;
   bool is_k = false;
 
   /* initialisation */
-  while ((opt = getopt_long(argc, argv, "i:k:o:t:dec:m:w:h", long_options,
+  while ((opt = getopt_long(argc, argv, "i:k:o:t:dec:m:w:hDf:", long_options,
                             nullptr)) != -1)
   {
     switch (opt)
@@ -165,6 +172,14 @@ void decodeFlags(int argc, char *argv[], InputFlags &flags)
       flags.kmc_memory = std::max((UINT32)atoi(optarg), (UINT32)1);
       args++;
       break;
+    case 'D':
+      flags.debug_mode = true;
+      args++;
+      break;
+    case 'f':
+      flags.initialize_file = std::string(optarg);
+      args++;
+      break;
     default:
       usage();
       exit(0);
@@ -192,9 +207,9 @@ int main(int argc, char **argv) {
   suk::decodeFlags(argc, argv, flags);
 
   suk::SolidKmers sk(flags.k);
-  sk.initialise(flags.read_filenames,flags.threads,flags.kmc_memory,flags.expected_coverage,flags.exclude_hp,flags.kmc_directory);
   
-  //sk.initialise_from_file(flags.threads,flags.kmc_memory,flags.expected_coverage,flags.exclude_hp,"/home/joshuac/chm13/flye/illumina_to_draft/hypo_test/aux/");
+  if(flags.initialize_file.size() == 0) sk.initialise(flags.read_filenames,flags.threads,flags.kmc_memory,flags.expected_coverage,flags.exclude_hp,flags.kmc_directory, flags.debug_mode);
+  else sk.initialise_from_file(flags.threads,flags.kmc_memory,flags.expected_coverage,flags.exclude_hp,flags.kmc_directory);
   sk.store(flags.output_filename+".bv");
 
   if (flags.dump_txt) {

@@ -143,7 +143,7 @@ private:
     static const float _cThresh;
 
     void generate_consensus_short(const UINT32 engine_idx);
-    void generate_consensus_long(const UINT32 engine_idx, bool initial);
+    void generate_consensus_long(const UINT32 engine_idx);
     inline void set_consensus(std::string const &con){_consensus = std::move(con);}
     inline void set_consensus_2(std::string const &con){_consensus_2 = std::move(con);}
     inline void set_marked_consensus(std::string const &con){_consensus.assign(con.begin()+cMarkerLen,con.end()-cMarkerLen);}

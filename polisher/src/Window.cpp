@@ -70,7 +70,7 @@ void Window::generate_consensus(const UINT32 engine_idx) {
             generate_consensus_short(engine_idx);
         }
         else {
-            generate_consensus_long(engine_idx,true);
+            generate_consensus_long(engine_idx);
         }
     }
     else {
@@ -196,7 +196,7 @@ void Window::generate_consensus_short(const UINT32 engine_idx) {
     }
 }
 
-void Window::generate_consensus_long(const UINT32 engine_idx, bool initial) {
+void Window::generate_consensus_long(const UINT32 engine_idx) {
     std::string consensus = "";
     auto graph = spoa::createGraph();
     bool arms_added = false;
@@ -205,21 +205,8 @@ void Window::generate_consensus_long(const UINT32 engine_idx, bool initial) {
     std::vector<std::vector<UINT32>> counts;
     counts.reserve(num_non_empty_arms);
     
-    // internal
+    // for consistency, use only the internal arms.
     _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kNW);
-    if (!initial) { // ignore draft and add consensus, if re-round of polishing
-        if (_consensus.size() > 0) {
-            auto alignment = _alignment_engines_long[engine_idx]->align(_consensus, graph);
-            graph->add_alignment(alignment, _consensus);
-        }
-
-    }
-    else { //  add draft
-        std::string unpacked_str(std::move(_draft.unpack()));
-        // draft's size will never be zero
-        auto alignment = _alignment_engines_long[engine_idx]->align(unpacked_str, graph);
-        graph->add_alignment(alignment, unpacked_str);
-    }
     for ( UINT i=0; i <  _internal_arms.size(); ++i) {
         std::string unpacked_str(std::move(_internal_arms[i].unpack()));
         if (unpacked_str.size() > 0) {
@@ -228,37 +215,7 @@ void Window::generate_consensus_long(const UINT32 engine_idx, bool initial) {
             graph->add_alignment(alignment, unpacked_str);
         }
     }
-    // prefix
-    _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kLOV);
-    for (const auto &it : _pre_arms) {
-        std::string unpacked_str(std::move(it.unpack()));
-        if (unpacked_str.size() > 0) {
-        arms_added = true;
-        auto alignment = _alignment_engines_long[engine_idx]->align(unpacked_str, graph);
-        graph->add_alignment(alignment, unpacked_str);
-        }
-    }
-    //suffix
-    _alignment_engines[engine_idx]->changeAlignType(spoa::AlignmentType::kROV);
-    for (const auto &it : _suf_arms) {
-        std::string unpacked_str(std::move(it.unpack()));
-        if (unpacked_str.size() > 0) {
-        arms_added = true;
-        auto alignment = _alignment_engines_long[engine_idx]->align(unpacked_str, graph);
-        graph->add_alignment(alignment, unpacked_str);
-        }
-    }
-    ///*************** FOR DEBUGGING ***************
-    #ifdef DEBUG3
-    std::vector<std::string> msa;
-    graph->generate_multiple_sequence_alignment(msa, true);
-    auto seq_num = 0;
-    std::cout << "================================="<< seg.get_id() <<std::endl;
-    for (const auto &it : msa){
-        std::cout << seq_num<< "\t" << it.c_str() << std::endl;
-        ++seq_num;
-    }
-    #endif
+    
     //*/ // /********************************************/
     if (arms_added)
     {
@@ -266,13 +223,6 @@ void Window::generate_consensus_long(const UINT32 engine_idx, bool initial) {
         consensus = graph->generate_consensus_custom(dst);
         set_consensus(curate(consensus, dst));
         set_consensus_2(consensus);  
-        //std::vector<std::string> msa;
-        //graph->generate_multiple_sequence_alignment(msa, true);
-        //consensus = graph->generate_consensus();
-        //set_consensus(expand(consensus, dst, msa, counts),false); 
-        if (initial) { // call second round of polishing
-            generate_consensus_long(engine_idx,false);
-        }           
     }
     else {
         set_consensus(_draft.unpack());

@@ -100,6 +100,8 @@ cp polisher/build/bin/hypo $builddir/
 cp scaffold/run_scaffold.sh $builddir/
 cp scaffold/join_scaffold.py $builddir/
 cp scaffold/filter_scaffold.py $builddir/
+cp scaffold/get_necessary_reads.py $builddir/
+cp scaffold/remove_duplicates.py $builddir/
 cp scaffold/build/find_scaffold $builddir/
 
 if ! [ -x "$(command -v minimap2)" ]; then
